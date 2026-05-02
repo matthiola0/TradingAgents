@@ -195,6 +195,12 @@ class AnthropicClient(BaseLLMClient):
             if key in self.kwargs:
                 llm_kwargs[key] = self.kwargs[key]
 
+        # Cap max_tokens at a reasonable analyst-report length. langchain-anthropic
+        # defaults to the model's full context, which makes anthropic SDK estimate
+        # the call could exceed 10 minutes and refuse the request unless streaming
+        # is enabled — fatal for backtests that re-use the LLM for every node.
+        llm_kwargs.setdefault("max_tokens", 4096)
+
         path, oauth_token = _resolve_anthropic_auth(llm_kwargs)
 
         if oauth_token is not None:
