@@ -39,6 +39,7 @@ from typing import Iterable, List
 
 from dotenv import load_dotenv
 
+from tradingagents.agents.utils.memory import TradingMemoryLog
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
@@ -145,6 +146,19 @@ def run(args: argparse.Namespace) -> int:
                 print(f"  would propagate({t}, {d.isoformat()})")
         return 0
 
+    # Skip (ticker, date) pairs that already have a memory-log entry, so a
+    # re-run after a partial failure doesn't burn quota redoing work the
+    # log already captured. ``--force`` overrides for when the user wants
+    # to overwrite stale runs.
+    if args.force:
+        existing: set[tuple[str, str]] = set()
+    else:
+        memory_log = TradingMemoryLog(config)
+        existing = {(e["ticker"], e["date"]) for e in memory_log.load_entries()}
+        if existing:
+            print(f"  resuming: {len(existing)} (ticker, date) pair(s) already in memory log — skipping those")
+            print()
+
     ta = TradingAgentsGraph(
         selected_analysts=analysts,
         debug=args.debug,
@@ -154,11 +168,16 @@ def run(args: argparse.Namespace) -> int:
     n_total = len(tickers) * len(dates)
     n_done = 0
     n_failed = 0
+    n_skipped = 0
 
     for t in tickers:
         for d in dates:
             n_done += 1
             iso = d.isoformat()
+            if (t, iso) in existing:
+                n_skipped += 1
+                print(f"[{n_done}/{n_total}] {t} {iso} ... SKIP (in memory log)")
+                continue
             print(f"[{n_done}/{n_total}] {t} {iso} ...", end=" ", flush=True)
             try:
                 _, decision = ta.propagate(t, iso)
@@ -173,7 +192,11 @@ def run(args: argparse.Namespace) -> int:
                     traceback.print_exc()
 
     print()
-    print(f"Done. {n_done - n_failed}/{n_done} succeeded, {n_failed} failed.")
+    n_attempted = n_done - n_skipped
+    print(
+        f"Done. {n_attempted - n_failed}/{n_attempted} new propagations succeeded, "
+        f"{n_failed} failed, {n_skipped} skipped."
+    )
     print("Now run:  python scripts/backtester.py "
           f"--ticker {tickers[0]} --holding-days {args.holding_days}")
     return 0 if n_failed == 0 else 1
@@ -216,6 +239,8 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--verbose", action="store_true", help="Print full tracebacks on failure.")
     g.add_argument("--dry-run", action="store_true",
                    help="List the (ticker, date) pairs that would be processed and exit.")
+    g.add_argument("--force", action="store_true",
+                   help="Re-run (ticker, date) pairs even if they already exist in the memory log.")
 
     args = p.parse_args(argv)
     return run(args)
