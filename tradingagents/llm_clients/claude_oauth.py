@@ -228,7 +228,7 @@ def _cli(argv: Optional[list] = None) -> int:
             print("Claude auth source: CLAUDE_CODE_OAUTH_TOKEN (setup token)")
             print(f"  Token starts: {env_token[:25]}...")
             print("  Lifetime: long-lived (no refresh needed)")
-            print("  Sent as: x-api-key (standard API-key path)")
+            print("  Sent as: Authorization: Bearer + anthropic-beta: oauth-2025-04-20")
             return 0
 
         info = get_subscription_info()

@@ -123,11 +123,20 @@ def _resolve_anthropic_auth(user_kwargs: dict) -> Tuple[str, dict]:
         # SDK default which will raise its own clear error.
         return "anthropic_api_key_env", {}
 
-    # 2. Setup token (Hermes-style). No beta header, no refresh.
+    # 2. Setup token from `claude setup-token`. Same on-the-wire format as
+    # the credentials.json access token (sk-ant-oat-*), so Anthropic rejects
+    # x-api-key auth with "invalid x-api-key" — the OAuth Bearer + beta
+    # header path is required. Difference vs. path 4: long-lived, no refresh.
     if forced in {"", "setup_token", "oauth"}:
         setup = _setup_token_from_env()
         if setup:
-            return "setup_token", {"api_key": setup}
+            return "setup_token", {
+                "api_key": setup,
+                "default_headers": {
+                    "Authorization": f"Bearer {setup}",
+                    "anthropic-beta": ANTHROPIC_OAUTH_BETA_HEADER,
+                },
+            }
 
     # 3. Credentials.json access token (with auto-refresh + beta header).
     if forced in {"", "credentials", "oauth"} and credentials_login_available():
