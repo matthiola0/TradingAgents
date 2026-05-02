@@ -1235,5 +1235,21 @@ def auth(
     raise typer.Exit(_codex_cli([action]))
 
 
+@app.command("claude-auth")
+def claude_auth(
+    action: str = typer.Argument(
+        "status",
+        help="One of: status | refresh. Reads ~/.claude/.credentials.json (Claude Code login).",
+    ),
+):
+    """Check / refresh the Claude Code OAuth token used by the anthropic provider.
+
+    `status`  shows subscription type, scopes, and token expiry.
+    `refresh` forces a token refresh via Anthropic's OAuth endpoint.
+    """
+    from tradingagents.llm_clients.claude_oauth import _cli as _claude_cli
+    raise typer.Exit(_claude_cli([action]))
+
+
 if __name__ == "__main__":
     app()
