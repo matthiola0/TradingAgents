@@ -152,6 +152,26 @@ For enterprise providers (e.g. Azure OpenAI, AWS Bedrock), copy `.env.enterprise
 
 For local models, configure Ollama with `llm_provider: "ollama"` in your config.
 
+#### ChatGPT (Codex) OAuth — use a paid ChatGPT account instead of API credit
+
+If you have a ChatGPT Plus / Pro / Team subscription, you can drive TradingAgents through the same backend the official OpenAI Codex CLI uses, no API key required:
+
+```bash
+tradingagents auth login         # opens https://auth.openai.com/codex/device, enter the displayed code
+tradingagents auth status        # show token expiry
+tradingagents auth logout        # remove ~/.tradingagents/auth/codex.json
+```
+
+Then in your config:
+
+```python
+config["llm_provider"] = "codex"
+config["deep_think_llm"] = "gpt-5.4"
+config["quick_think_llm"] = "gpt-5.4-mini"
+```
+
+Tokens are stored in `~/.tradingagents/auth/codex.json` and auto-refresh before expiry. If the official Codex CLI is already logged in on the same machine, TradingAgents will reuse those tokens on first run. **Caveats:** OpenAI does not officially support third-party use of ChatGPT subscription quota — endpoints, client IDs, and detection may change at any time. Use at your own risk.
+
 Alternatively, copy `.env.example` to `.env` and fill in your keys:
 ```bash
 cp .env.example .env

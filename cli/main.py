@@ -1217,5 +1217,23 @@ def analyze(
     run_analysis(checkpoint=checkpoint)
 
 
+@app.command()
+def auth(
+    action: str = typer.Argument(
+        "login",
+        help="One of: login | logout | status. Default 'login' starts the ChatGPT (Codex) device-code flow.",
+    ),
+):
+    """Authenticate against ChatGPT (Codex) so you can run with `llm_provider='codex'`.
+
+    `login`  starts the OpenAI device-code flow and saves tokens to
+             ~/.tradingagents/auth/codex.json.
+    `logout` deletes the saved tokens.
+    `status` shows whether a token is present and how long it has left.
+    """
+    from tradingagents.llm_clients.codex_oauth import _cli as _codex_cli
+    raise typer.Exit(_codex_cli([action]))
+
+
 if __name__ == "__main__":
     app()
