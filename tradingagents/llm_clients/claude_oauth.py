@@ -202,7 +202,12 @@ def get_subscription_info() -> Dict[str, Any]:
 
 
 def is_available() -> bool:
-    """True if a Claude Code OAuth token can be loaded (no refresh attempted)."""
+    """True if ~/.claude/.credentials.json has a usable access token.
+
+    Note: the long-lived ``CLAUDE_CODE_OAUTH_TOKEN`` setup token is checked
+    separately by ``anthropic_client._setup_token_from_env`` because it
+    follows the standard API-key code path, not this OAuth Bearer path.
+    """
     try:
         state = _load_full_state()
     except ClaudeAuthError:
@@ -216,9 +221,23 @@ def _cli(argv: Optional[list] = None) -> int:
     cmd = (argv[0] if argv else "status").lower()
 
     if cmd == "status":
+        # Setup-token (claude setup-token) takes precedence — it's the
+        # Anthropic-supported third-party path with no refresh needed.
+        env_token = (os.getenv("CLAUDE_CODE_OAUTH_TOKEN") or "").strip()
+        if env_token:
+            print("Claude auth source: CLAUDE_CODE_OAUTH_TOKEN (setup token)")
+            print(f"  Token starts: {env_token[:25]}...")
+            print("  Lifetime: long-lived (no refresh needed)")
+            print("  Sent as: x-api-key (standard API-key path)")
+            return 0
+
         info = get_subscription_info()
         if not info:
-            print("Claude Code: not logged in. Run `claude login`.")
+            print("Claude auth: not configured.")
+            print("Options:")
+            print("  - run `claude setup-token` and export CLAUDE_CODE_OAUTH_TOKEN, or")
+            print("  - run `claude login` to populate ~/.claude/.credentials.json, or")
+            print("  - export ANTHROPIC_API_KEY for a regular API key.")
             return 1
         exp = info.get("expiresAt")
         exp_str = (
@@ -228,7 +247,7 @@ def _cli(argv: Optional[list] = None) -> int:
         )
         scopes = info.get("scopes") or []
         has_inference = "user:inference" in scopes
-        print(f"Claude Code: logged in")
+        print("Claude auth source: ~/.claude/.credentials.json (claude login)")
         print(f"  Path: {_credentials_path()}")
         print(f"  Subscription: {info.get('subscriptionType')}")
         print(f"  Inference scope: {'yes' if has_inference else 'NO (cannot drive API)'}")

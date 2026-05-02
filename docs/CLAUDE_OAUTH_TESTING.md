@@ -12,8 +12,17 @@
 |------|------|
 | Python | 3.10+ |
 | Claude 訂閱 | Pro / Max（Free 不行） |
-| Claude Code | 已安裝且至少登入過一次（`claude login`） |
+| Claude Code | 已安裝且至少登入過一次（`claude login` 或 `claude setup-token`） |
 | 套件 | 已 `pip install .` 安裝 TradingAgents |
+
+## 兩種 token 怎麼選
+
+| 來源 | 命令 | 壽命 | 用法 | 適合 |
+|------|------|------|------|------|
+| **Setup token**（推薦） | `claude setup-token` | 數月 | `export CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...` | headless / CI / backtest 長跑 |
+| **Login session** | `claude login` | ~6 小時自動 refresh | 自動讀 `~/.claude/.credentials.json` | 互動式開發 |
+
+兩種都吃 ChatGPT—不對，**都吃你的 Claude 訂閱 quota**，差別只在 token 怎麼放。Backtest / 長時間批次強烈建議 setup token，省去 refresh race。
 
 確認 Claude Code 已登入：
 
@@ -33,14 +42,40 @@ claude login
 
 ## 1. 確認 token 狀態
 
-```bash
+### 1a. 用 Setup token（推薦）
+
+```powershell
+# 一次性產生長期 token（會印一個 sk-ant-oat01-... 字串給你）
+claude setup-token
+
+# 設定環境變數（PowerShell；Bash 用 export）
+$env:CLAUDE_CODE_OAUTH_TOKEN = "sk-ant-oat01-..."
+
 tradingagents claude-auth status
 ```
 
 期望輸出：
 
 ```
-Claude Code: logged in
+Claude auth source: CLAUDE_CODE_OAUTH_TOKEN (setup token)
+  Token starts: sk-ant-oat01-...
+  Lifetime: long-lived (no refresh needed)
+  Sent as: x-api-key (standard API-key path)
+```
+
+> 把 `$env:CLAUDE_CODE_OAUTH_TOKEN = ...` 寫進 `.env` 或 PowerShell `$PROFILE`，下次 shell 啟動自動帶。
+
+### 1b. 用 Login session（互動式）
+
+```bash
+claude login                          # 已登入可跳過
+tradingagents claude-auth status
+```
+
+期望輸出：
+
+```
+Claude auth source: ~/.claude/.credentials.json (claude login)
   Path: C:/Users/Pan/.claude/.credentials.json
   Subscription: max
   Inference scope: yes
@@ -229,18 +264,26 @@ Refreshed. New token starts: sk-ant-oat01-... ...
 
 ## 4. Auth 路徑優先順序
 
-`AnthropicClient` 自動選擇：
+`AnthropicClient` 自動選擇（從上而下，第一個成立就用）：
 
-```
-有設 TRADINGAGENTS_ANTHROPIC_AUTH=api_key  →  強制走 API key
-有設 TRADINGAGENTS_ANTHROPIC_AUTH=oauth    →  強制走 OAuth
-傳了 api_key kwarg                          →  走 API key
-ANTHROPIC_API_KEY 環境變數有值              →  走 API key
-~/.claude/.credentials.json 存在 + 可解析   →  走 OAuth
-都沒有                                       →  raise RuntimeError
-```
+| # | 條件 | 路徑名稱 | 認證方式 |
+|---|------|---------|---------|
+| 1 | 傳了 `api_key=...` kwarg | `explicit_api_key` | x-api-key（標準 API key） |
+| 2 | `ANTHROPIC_API_KEY` 環境變數 | `anthropic_api_key_env` | x-api-key |
+| 3 | `CLAUDE_CODE_OAUTH_TOKEN` 環境變數 | `setup_token` | x-api-key（無 beta header） |
+| 4 | `~/.claude/.credentials.json` 存在 | `credentials_oauth` | Bearer + `oauth-2025-04-20` beta header（自動 refresh） |
+| 5 | 都沒有 | — | raise RuntimeError 並提示 |
 
-意思是：**只要你設了 `ANTHROPIC_API_KEY`，OAuth 自動讓位**——既有使用者升級不會被影響。
+`TRADINGAGENTS_ANTHROPIC_AUTH` 強制覆寫：
+
+| 值 | 行為 |
+|----|------|
+| `api_key` | 跳過所有 OAuth 路徑 |
+| `setup_token` | 只用路徑 3（環境變數的 setup token） |
+| `credentials` | 只用路徑 4（login session） |
+| `oauth` | 路徑 3 → 路徑 4 |
+
+意思是：**設了 `ANTHROPIC_API_KEY` 或 `CLAUDE_CODE_OAUTH_TOKEN` 都會自動把 login session 蓋掉**——既有使用者升級不受影響。
 
 ---
 
@@ -279,9 +322,9 @@ claude logout
 | 變數 | 預設 | 說明 |
 |------|------|------|
 | `CLAUDE_CREDENTIALS_PATH` | `~/.claude/.credentials.json` | 自訂 credentials 路徑 |
-| `CLAUDE_CODE_OAUTH_TOKEN` | (未設) | headless / CI 用，直接帶一個 access token，跳過讀檔 |
-| `TRADINGAGENTS_ANTHROPIC_AUTH` | (自動) | `api_key` 或 `oauth` 強制路徑 |
-| `ANTHROPIC_API_KEY` | (未設) | 設了就走 API key 路徑 |
+| `CLAUDE_CODE_OAUTH_TOKEN` | (未設) | **建議**：`claude setup-token` 產出的長期訂閱 token，headless / 長批次首選 |
+| `TRADINGAGENTS_ANTHROPIC_AUTH` | (自動) | `api_key` / `setup_token` / `credentials` / `oauth` 強制路徑 |
+| `ANTHROPIC_API_KEY` | (未設) | 設了就走 API key 路徑（扣 API credit，不走訂閱） |
 
 ---
 
