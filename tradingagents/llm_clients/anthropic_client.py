@@ -1,6 +1,7 @@
 import os
 from typing import Any, Optional, Tuple
 
+import anthropic
 from langchain_anthropic import ChatAnthropic
 
 from .base_client import BaseLLMClient, normalize_content
@@ -17,9 +18,6 @@ _PASSTHROUGH_KWARGS = (
     "callbacks", "http_client", "http_async_client", "effort",
 )
 
-# Env var Hermes Agent uses for the long-lived setup token produced by
-# ``claude setup-token``. Anthropic supports this token over standard
-# x-api-key auth so it slots into the API-key path with no special headers.
 _SETUP_TOKEN_ENV = "CLAUDE_CODE_OAUTH_TOKEN"
 
 
@@ -35,16 +33,54 @@ class NormalizedChatAnthropic(ChatAnthropic):
         return normalize_content(super().invoke(input, config, **kwargs))
 
 
+def _build_oauth_sdk_clients(
+    token: str, base_url: Optional[str] = None
+) -> Tuple[anthropic.Anthropic, anthropic.AsyncAnthropic]:
+    """Build anthropic SDK clients that authenticate via OAuth Bearer.
+
+    ``auth_token=`` makes the SDK send ``Authorization: Bearer <token>``
+    instead of ``x-api-key``. The ``anthropic-beta: oauth-2025-04-20``
+    header in default_headers is required to enable subscription-quota
+    billing on every request, including those made through wrappers like
+    ``ChatAnthropic.with_structured_output`` that rebuild bindings around
+    the same underlying SDK client.
+    """
+    kwargs: dict = {
+        "auth_token": token,
+        "default_headers": {"anthropic-beta": ANTHROPIC_OAUTH_BETA_HEADER},
+    }
+    if base_url:
+        kwargs["base_url"] = base_url
+    return anthropic.Anthropic(**kwargs), anthropic.AsyncAnthropic(**kwargs)
+
+
+def _attach_oauth_clients(
+    chat: ChatAnthropic, token: str, base_url: Optional[str] = None
+) -> None:
+    """Replace the SDK clients on a ChatAnthropic so all calls use Bearer auth.
+
+    This is the single point where OAuth auth is anchored. Because every
+    ``ChatAnthropic`` call (including ones routed through
+    ``with_structured_output`` / ``bind_tools`` / streaming) ultimately
+    delegates to ``self._client`` / ``self._async_client``, replacing
+    those SDK instances guarantees the OAuth header survives every wrapper
+    langchain might build on top.
+    """
+    sync_client, async_client = _build_oauth_sdk_clients(token, base_url)
+    # Use object.__setattr__ to bypass any pydantic validation that may
+    # disallow direct assignment to private attrs on Pydantic v2 models.
+    object.__setattr__(chat, "_client", sync_client)
+    object.__setattr__(chat, "_async_client", async_client)
+
+
 class _OAuthRefreshingChatAnthropic(NormalizedChatAnthropic):
     """ChatAnthropic that refreshes its OAuth Bearer token before each call.
 
     The short-lived access token from ``~/.claude/.credentials.json`` expires
-    after about 6 hours. ``TradingAgentsGraph`` only builds its LLM once at
-    init, so a long-running batch (e.g. a backtest) would hit 401 part-way
-    through. Before each ``invoke`` we re-call ``get_access_token()``, which
-    refreshes via the stored ``refresh_token`` if expiry is within the skew
-    window. The refreshed token is rewritten into the underlying anthropic
-    SDK client and the ``default_headers`` so both auth sites stay in sync.
+    after about 6 hours. Before each ``invoke`` we re-call
+    ``get_access_token()``, which refreshes via the stored ``refresh_token``
+    if expiry is within the skew window, and rebuilds the underlying
+    anthropic SDK clients with the new token.
 
     The setup-token / api-key paths bypass this class entirely.
     """
@@ -57,24 +93,7 @@ class _OAuthRefreshingChatAnthropic(NormalizedChatAnthropic):
                 f"Claude OAuth refresh failed: {exc}. "
                 "Re-run `claude login` or use CLAUDE_CODE_OAUTH_TOKEN (claude setup-token)."
             ) from exc
-
-        # Update default_headers (read by anthropic SDK on every request).
-        headers = dict(self.default_headers or {})
-        headers["Authorization"] = f"Bearer {new_token}"
-        headers["anthropic-beta"] = ANTHROPIC_OAUTH_BETA_HEADER
-        self.default_headers = headers
-
-        # Update the SDK client's api_key fallback. The Authorization header
-        # we just wrote takes precedence because the beta header tells
-        # Anthropic to honour Bearer auth, but keeping api_key in sync avoids
-        # any surprise if langchain ever re-builds the client.
-        for attr in ("_client", "_async_client"):
-            sdk = getattr(self, attr, None)
-            if sdk is not None and hasattr(sdk, "api_key"):
-                try:
-                    sdk.api_key = new_token
-                except Exception:
-                    pass
+        _attach_oauth_clients(self, new_token, getattr(self, "anthropic_api_url", None))
 
     def invoke(self, input, config=None, **kwargs):
         self._refresh_oauth_token()
@@ -90,55 +109,40 @@ def _setup_token_from_env() -> Optional[str]:
     return token or None
 
 
-def _resolve_anthropic_auth(user_kwargs: dict) -> Tuple[str, dict]:
-    """Pick the auth source and return (path_name, kwargs_to_merge).
+def _resolve_anthropic_auth(user_kwargs: dict) -> Tuple[str, Optional[str]]:
+    """Pick the auth source. Returns (path_name, oauth_token_or_None).
+
+    For OAuth paths (``setup_token`` and ``credentials_oauth``) the token is
+    returned so the caller can install Bearer-auth SDK clients post-init.
+    For API-key paths the token is None — the standard ChatAnthropic
+    construction handles auth.
 
     Precedence (highest first):
         1. Explicit ``api_key=...`` passed by the caller (per-call override).
         2. ``ANTHROPIC_API_KEY`` env var (legacy API-key path).
-        3. ``CLAUDE_CODE_OAUTH_TOKEN`` env var — the long-lived setup token
-           produced by ``claude setup-token``. Anthropic-officially supported
-           for headless / third-party use; bills the user's subscription
-           quota; sent as a regular API key (x-api-key), no beta header.
+        3. ``CLAUDE_CODE_OAUTH_TOKEN`` env var — long-lived setup token from
+           ``claude setup-token``. Bearer auth, no refresh.
         4. ``~/.claude/.credentials.json`` — short-lived access token from
-           ``claude login``, with refresh and the
-           ``anthropic-beta: oauth-2025-04-20`` Bearer header.
+           ``claude login``. Bearer auth, auto-refreshed before each call.
 
-    Override via ``TRADINGAGENTS_ANTHROPIC_AUTH``:
-        - ``api_key``      => skip OAuth paths entirely
-        - ``setup_token``  => use only path 3
-        - ``credentials``  => use only path 4
-        - ``oauth``        => alias for "setup_token then credentials"
+    Override via ``TRADINGAGENTS_ANTHROPIC_AUTH``: ``api_key`` /
+    ``setup_token`` / ``credentials`` / ``oauth`` (= setup_token then credentials).
     """
     forced = os.getenv("TRADINGAGENTS_ANTHROPIC_AUTH", "").strip().lower()
 
-    # 1. Explicit kwarg wins unless override forces an OAuth path.
     if forced not in {"setup_token", "credentials", "oauth"}:
         if user_kwargs.get("api_key"):
-            return "explicit_api_key", {}
+            return "explicit_api_key", None
         if forced != "credentials" and os.getenv("ANTHROPIC_API_KEY"):
-            return "anthropic_api_key_env", {}
+            return "anthropic_api_key_env", None
     if forced == "api_key":
-        # The user forced api_key but didn't supply one. Fall through to the
-        # SDK default which will raise its own clear error.
-        return "anthropic_api_key_env", {}
+        return "anthropic_api_key_env", None
 
-    # 2. Setup token from `claude setup-token`. Same on-the-wire format as
-    # the credentials.json access token (sk-ant-oat-*), so Anthropic rejects
-    # x-api-key auth with "invalid x-api-key" — the OAuth Bearer + beta
-    # header path is required. Difference vs. path 4: long-lived, no refresh.
     if forced in {"", "setup_token", "oauth"}:
         setup = _setup_token_from_env()
         if setup:
-            return "setup_token", {
-                "api_key": setup,
-                "default_headers": {
-                    "Authorization": f"Bearer {setup}",
-                    "anthropic-beta": ANTHROPIC_OAUTH_BETA_HEADER,
-                },
-            }
+            return "setup_token", setup
 
-    # 3. Credentials.json access token (with auto-refresh + beta header).
     if forced in {"", "credentials", "oauth"} and credentials_login_available():
         try:
             token = get_access_token()
@@ -148,13 +152,7 @@ def _resolve_anthropic_auth(user_kwargs: dict) -> Tuple[str, dict]:
                 "or set ANTHROPIC_API_KEY"
             )
             raise RuntimeError(f"Claude OAuth not ready: {exc}{hint}") from exc
-        return "credentials_oauth", {
-            "api_key": token,
-            "default_headers": {
-                "Authorization": f"Bearer {token}",
-                "anthropic-beta": ANTHROPIC_OAUTH_BETA_HEADER,
-            },
-        }
+        return "credentials_oauth", token
 
     raise RuntimeError(
         "No Anthropic credentials found. Either:\n"
@@ -170,13 +168,13 @@ class AnthropicClient(BaseLLMClient):
     Three auth paths, picked automatically:
 
     1. **API key** — ``ANTHROPIC_API_KEY`` env var or explicit ``api_key`` kwarg.
-       Standard Anthropic SDK behaviour.
+       Standard Anthropic SDK behaviour (x-api-key header).
     2. **Setup token** — ``CLAUDE_CODE_OAUTH_TOKEN`` env var, populated from
-       ``claude setup-token``. Anthropic-supported third-party token tied to
-       a Claude Pro / Max / Team subscription; long-lived, no refresh needed.
+       ``claude setup-token``. OAuth Bearer auth, no refresh, bills against
+       the user's Claude Pro / Max / Team subscription quota.
     3. **Claude Code OAuth credentials** — ``~/.claude/.credentials.json``
-       written by ``claude login``. Short-lived access token, auto-refreshed,
-       sent with the ``anthropic-beta: oauth-2025-04-20`` Bearer header.
+       written by ``claude login``. Short-lived access token, auto-refreshed
+       before each call. Same Bearer auth as path 2.
 
     Override the precedence with ``TRADINGAGENTS_ANTHROPIC_AUTH``
     (``api_key`` / ``setup_token`` / ``credentials`` / ``oauth``).
@@ -197,20 +195,22 @@ class AnthropicClient(BaseLLMClient):
             if key in self.kwargs:
                 llm_kwargs[key] = self.kwargs[key]
 
-        path, additions = _resolve_anthropic_auth(llm_kwargs)
-        for key, value in additions.items():
-            if key == "default_headers":
-                merged = dict(llm_kwargs.get("default_headers") or {})
-                merged.update(value)
-                llm_kwargs["default_headers"] = merged
-            else:
-                llm_kwargs[key] = value
+        path, oauth_token = _resolve_anthropic_auth(llm_kwargs)
 
-        # The credentials.json path uses a 6-hour access token that needs
-        # transparent refreshing for long-running batches; the other paths
-        # use long-lived tokens and don't need the refreshing wrapper.
-        if path == "credentials_oauth":
-            return _OAuthRefreshingChatAnthropic(**llm_kwargs)
+        if oauth_token is not None:
+            # The api_key field is required for ChatAnthropic validation but
+            # is never used on the wire — _attach_oauth_clients overrides
+            # the SDK clients to use auth_token (Bearer) instead.
+            llm_kwargs.setdefault("api_key", "oauth-bearer-managed-by-tradingagents")
+            cls = (
+                _OAuthRefreshingChatAnthropic
+                if path == "credentials_oauth"
+                else NormalizedChatAnthropic
+            )
+            chat = cls(**llm_kwargs)
+            _attach_oauth_clients(chat, oauth_token, self.base_url)
+            return chat
+
         return NormalizedChatAnthropic(**llm_kwargs)
 
     def validate_model(self) -> bool:
