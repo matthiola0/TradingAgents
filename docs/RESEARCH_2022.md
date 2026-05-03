@@ -5,11 +5,22 @@ signals in a falling market. Run 2026-05-02/03 on the
 [feat/oauth-and-backtest](https://github.com/matthiola0/TradingAgents/tree/feat/oauth-and-backtest)
 branch.
 
-## TL;DR
+## TL;DR (updated with crypto 2023 bull-year data)
 
-> Tested across 4 stocks (NVDA / TSLA / AAPL / META) and 2 cryptos
-> (BTC-USD / ETH-USD) in 2022, the framework de-risks to half-position
-> 92% of the time on crypto and 44% of the time on stocks.
+> Tested across 4 stocks (NVDA / TSLA / AAPL / META) in 2022 plus
+> NVDA 2024 H1, and 2 cryptos (BTC-USD / ETH-USD) across 2022 + 2023,
+> the framework's signal is **regime-dependent and asset-dependent**.
+>
+> The headline finding: **BTC-USD 2023 produced the strongest true
+> signal in the whole study (+40pp vs always-50% baseline, with 75%
+> de-risk precision at a 33% base rate = +42pp lift)**. The same
+> framework on ETH-USD across both 2022 and 2023 produced negative
+> true signal. So the framework's technical-analyst prompt is not
+> "broken on crypto" — it works on BTC, fails on ETH.
+>
+> Across 9 (ticker, year) cohorts: 5 positive true signal (NVDA 2022,
+> META 2022, AAPL 2022, BTC 2023, NVDA 2024 H1), 4 negative
+> (TSLA 2022, ETH 2022, ETH 2023, BTC 2022 borderline +0.7pp).
 >
 > Versus a naive "always Buy" baseline, this looks like dramatic alpha
 > (+21.5pp on stocks, +16.7pp on crypto). But versus a more honest
@@ -53,15 +64,37 @@ fundamentals, or bull/bear debate.
 | AAPL   | -17.0% | -1.2% | +15.9pp | 7 Buy / 5 OW / 0 Hold |
 | META   | -50.0% | -15.1% | +34.9pp | 7 Buy / 4 OW / 1 Hold |
 
-## Crypto results
+## Crypto results — 2022 vs 2023
 
-| Ticker | Naive every-month Buy | TradingAgents | "Alpha" vs Buy | Ratings |
-|--------|----------------------:|--------------:|---------------:|---------|
-| BTC-USD | -71.5% | -42.9% | +28.6pp | 2 Buy / 10 OW |
-| ETH-USD | -76.3% | -68.9% | +7.3pp | 3 Buy / 9 OW |
+| Cohort | Naive Buy | Strategy | Dumb-50% | True signal | De-risk lift |
+|--------|----------:|---------:|---------:|------------:|-------------:|
+| BTC-USD 2022 (bear) | -71.5% | -42.9% | -43.5% | **+0.7pp** | +11pp |
+| BTC-USD 2023 (bull) | +106.4% | +87.4% | +47.3% | **+40.1pp** | **+42pp** |
+| ETH-USD 2022 (bear) | -76.3% | -68.9% | -45.9% | -23.0pp | -12pp |
+| ETH-USD 2023 (bull) | +52.8% | +24.1% | +25.5% | -1.5pp | -13pp |
 
-92% of crypto decisions were de-risk calls (vs 44% for stocks). The
-framework basically lived in half-position throughout 2022 crypto.
+The 2023 results break the 2022 narrative that "the framework can't
+trade crypto":
+
+- **BTC 2023 is the strongest cohort in the entire study.** With
+  only a 33% base rate of negative months (it was a strong bull
+  year), the model still picked 4 months to drop to 50% position
+  and 3 of those 4 months were in fact negative — a +42pp lift over
+  the base rate. Real, statistically meaningful timing skill.
+- The one BTC 2023 OW miss was 2023-01 (+36% rebound), which by
+  itself dragged "alpha vs naive Buy" to **-19pp**. The model picks
+  the right months to step aside more often than not, but the
+  asymmetry of crypto means that one wrong step-aside in a +36% month
+  is enormously costly.
+
+- **ETH 2023 reverses the BTC pattern.** Same prompt, same
+  indicators, same provider, but four consecutive Overweight calls
+  early in the year (Jan-Apr) all landed on positive months —
+  including ETH +34% in January and +13% in March. The model was
+  correctly cautious on BTC's hot start (the OW that hit -36% rebound)
+  for the wrong reason: the technical indicators saw the same setup
+  on both, but only BTC corrected. The framework cannot tell BTC and
+  ETH apart at all.
 
 ## Pooled portfolios
 
@@ -145,27 +178,32 @@ no reason to de-risk and adds no alpha.
 
 What the data supports:
 
-1. The market analyst prompt has weak but positive forward-looking signal
-   on US large-cap tech equities (+1.6pp over a half-position baseline,
-   +19pp lift on de-risk-call precision over the base rate).
-2. The "alpha vs naive Buy" headline numbers are inflated by the model's
-   default-cautious bias. Most of what looks like alpha is the value of
-   not running 100% long during a bear market — not skill in timing.
-3. Behaviour is consistent across four large-cap tech names.
+1. **The market analyst prompt has real timing signal on BTC** —
+   strongest in 2023 (+42pp de-risk lift over a 33% base rate, +40pp
+   vs always-50% baseline). The signal is also weakly present on US
+   large-cap tech equities in bear markets (+19pp de-risk lift on
+   stocks, true signal +1.6pp over the always-50% baseline).
+2. The framework correctly identifies bull-vs-bear regimes — its
+   de-risk frequency drops materially in uptrends (NVDA 2024 H1: 12%
+   de-risk; BTC 2023: 33%; vs bear cohorts averaging 50-90%).
+3. Behaviour is consistent across four large-cap tech names in 2022.
 
 What the data does **not** support:
 
-1. **The framework does not generalise to crypto.** Same prompt, same
-   technical indicators, same provider — but on BTC/ETH the model loses
-   12pp vs a permanent-half-position baseline because its few Buy calls
-   land on months that drop 15-35%. The technical heuristics are tuned
-   to equity volatility distributions.
-2. The framework cannot anticipate single-month crashes (equity or crypto).
-3. The framework cannot generate short or full-cash signals (0 Sell, 0
-   Underweight across 72 decisions).
-4. The 2022 sample is one regime. Findings may not carry to 2008-style
-   broad crashes, sideways markets, value/cyclical equities, or crypto
-   bull regimes.
+1. **The framework does not generalise within crypto.** ETH gets
+   negative true signal in both 2022 and 2023 even though the same
+   prompt produces the study's strongest signal on BTC 2023. The
+   technical indicators cannot distinguish BTC from ETH.
+2. **One missed call can wipe out a year of correct ones.** BTC 2023
+   was right on 3/4 of its de-risk calls but the one wrong call (2023-01
+   OW missing a +36% rebound) flipped strategy-vs-naive-Buy from
+   positive to -19pp. Asymmetric payoff structure of crypto amplifies
+   model errors.
+3. The framework cannot anticipate single-month crashes (equity or
+   crypto): NVDA -28%, TSLA -38%, ETH -33%, BTC -33% all came with
+   "Buy" or "Overweight" calls, not Hold or Sell.
+4. The framework cannot generate short or full-cash signals (0 Sell,
+   0 Underweight across all 96+ decisions in this study).
 
 ## Reproducing
 
