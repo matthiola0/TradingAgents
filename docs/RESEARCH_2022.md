@@ -5,22 +5,39 @@ signals in a falling market. Run 2026-05-02/03 on the
 [feat/oauth-and-backtest](https://github.com/matthiola0/TradingAgents/tree/feat/oauth-and-backtest)
 branch.
 
-## TL;DR (updated with crypto 2023 bull-year data)
+## TL;DR (final, with BTC 2024 and 2025 added)
 
-> Tested across 4 stocks (NVDA / TSLA / AAPL / META) in 2022 plus
-> NVDA 2024 H1, and 2 cryptos (BTC-USD / ETH-USD) across 2022 + 2023,
-> the framework's signal is **regime-dependent and asset-dependent**.
+> Tested across 4 stocks (NVDA / TSLA / AAPL / META in 2022, NVDA
+> through 2024-H1) and BTC across 4 full years (2022-2025) plus
+> ETH 2022-2023, the dominant finding is **the framework's apparent
+> "BTC signal" did not survive sample expansion**.
 >
-> The headline finding: **BTC-USD 2023 produced the strongest true
-> signal in the whole study (+40pp vs always-50% baseline, with 75%
-> de-risk precision at a 33% base rate = +42pp lift)**. The same
-> framework on ETH-USD across both 2022 and 2023 produced negative
-> true signal. So the framework's technical-analyst prompt is not
-> "broken on crypto" — it works on BTC, fails on ETH.
+> The 2-year crypto study originally suggested BTC had a robust
+> +42pp de-risk lift. Adding 2024 and 2025 shows that was 2023 alone:
 >
-> Across 9 (ticker, year) cohorts: 5 positive true signal (NVDA 2022,
-> META 2022, AAPL 2022, BTC 2023, NVDA 2024 H1), 4 negative
-> (TSLA 2022, ETH 2022, ETH 2023, BTC 2022 borderline +0.7pp).
+> | Year | BTC de-risk lift over base rate |
+> |------|--------------------------------:|
+> | 2022 | +11pp |
+> | 2023 | **+42pp** ← outlier |
+> | 2024 | -2pp |
+> | 2025 | -7pp |
+>
+> Mean +11pp, median ~0pp, std ~22pp across 4 BTC cohorts. The
+> framework has no stable timing signal on BTC. The 2023 result was
+> sample noise from a single outlier year.
+>
+> **Where the framework actually works**: US large-cap tech equities
+> in bear regimes (NVDA/META/AAPL 2022 all show +7 to +14pp true
+> signal with 80-100% de-risk precision). Three same-year same-sector
+> cohorts is the most defensible result in the study, but still a
+> small sample.
+>
+> Across 11 (ticker, year) cohorts now in the dataset: 4 clearly
+> positive (NVDA/META/AAPL 2022, BTC 2023), 5 around zero or
+> negative (TSLA 2022, ETH 2022/2023, BTC 2024/2025, BTC 2022 only
+> +0.7pp), 2 inconclusive (NVDA 2024 H1 because de-risk rate was
+> only 12%, BTC 2024 because the +61pp "true signal" is the
+> mechanical effect of being long in a +127% market not skill).
 >
 > Versus a naive "always Buy" baseline, this looks like dramatic alpha
 > (+21.5pp on stocks, +16.7pp on crypto). But versus a more honest
@@ -64,14 +81,25 @@ fundamentals, or bull/bear debate.
 | AAPL   | -17.0% | -1.2% | +15.9pp | 7 Buy / 5 OW / 0 Hold |
 | META   | -50.0% | -15.1% | +34.9pp | 7 Buy / 4 OW / 1 Hold |
 
-## Crypto results — 2022 vs 2023
+## Crypto results — full 4-year BTC sweep
 
-| Cohort | Naive Buy | Strategy | Dumb-50% | True signal | De-risk lift |
-|--------|----------:|---------:|---------:|------------:|-------------:|
-| BTC-USD 2022 (bear) | -71.5% | -42.9% | -43.5% | **+0.7pp** | +11pp |
-| BTC-USD 2023 (bull) | +106.4% | +87.4% | +47.3% | **+40.1pp** | **+42pp** |
-| ETH-USD 2022 (bear) | -76.3% | -68.9% | -45.9% | -23.0pp | -12pp |
-| ETH-USD 2023 (bull) | +52.8% | +24.1% | +25.5% | -1.5pp | -13pp |
+| Cohort | Regime | Naive Buy | Strategy | Dumb-50% | True signal | **De-risk lift** |
+|--------|--------|----------:|---------:|---------:|------------:|-----------------:|
+| BTC-USD 2022 | bear | -71.5% | -42.9% | -43.5% | +0.7pp | +11pp |
+| BTC-USD 2023 | strong bull | +106.4% | +87.4% | +47.3% | +40.1pp | **+42pp** |
+| BTC-USD 2024 | strong bull | +126.8% | +116.2% | +55.3% | +60.9pp* | -2pp |
+| BTC-USD 2025 | sideways +9% | +9.2% | +6.0% | +6.0% | -0.1pp | -7pp |
+| ETH-USD 2022 | bear | -76.3% | -68.9% | -45.9% | -23.0pp | -12pp |
+| ETH-USD 2023 | bull | +52.8% | +24.1% | +25.5% | -1.5pp | -13pp |
+
+\* The 2024 "true signal" is misleading: it reflects being mostly long
+in a +127% market, not selection. The de-risk lift is the cleanest
+measure of timing skill, and 2024 shows -2pp = none.
+
+The de-risk lift across 4 BTC years has mean +11pp, median ~0pp, and
+standard deviation ~22pp. With only 4 cohorts of 12 observations
+each, this is statistically indistinguishable from "no signal,
+modest noise."
 
 The 2023 results break the 2022 narrative that "the framework can't
 trade crypto":
