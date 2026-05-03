@@ -7,20 +7,30 @@ branch.
 
 ## TL;DR
 
-> When the framework says "de-risk" (Overweight or Hold), **90% of those calls
-> land on a negative-return month**. Across NVDA / TSLA / AAPL / META in 2022,
-> the resulting equal-weight portfolio loses **-19.9%** vs **-41.5%** for naive
-> "buy every month" — **+21.5pp of alpha** purely from position sizing.
+> Tested across 4 stocks (NVDA / TSLA / AAPL / META) and 2 cryptos
+> (BTC-USD / ETH-USD) in 2022, the framework de-risks to half-position
+> 92% of the time on crypto and 44% of the time on stocks.
+>
+> Versus a naive "always Buy" baseline, this looks like dramatic alpha
+> (+21.5pp on stocks, +16.7pp on crypto). But versus a more honest
+> "always 50% position" baseline — which captures the value of plain
+> caution without crediting the model for it — the **true signal alpha
+> is +1.6pp on stocks and -12.3pp on crypto**.
+>
+> The framework has weak but positive timing skill on US large-cap
+> equities. On crypto its Buy calls are confidently wrong, and overall
+> it underperforms a constant-half-position baseline by 12pp.
 
-The framework never produced a Sell or Underweight rating, so it cannot short
-or fully exit; "alpha" comes entirely from cutting position to 0.5x or 0x at
-the right times.
+The framework never produced a Sell or Underweight rating across 72
+total decisions, so it cannot short or fully exit; alpha (where it
+exists) comes entirely from cutting position to 0.5x or 0x at the
+right times.
 
 ## Setup
 
 | Parameter | Value |
 |-----------|-------|
-| Tickers | NVDA, TSLA, AAPL, META |
+| Tickers | NVDA, TSLA, AAPL, META, BTC-USD, ETH-USD |
 | Date range | 2022-01-03 → 2022-12-05 (12 monthly entries each) |
 | Sample frequency | First Monday of each month (`--frequency monthly`) |
 | Holding period | 20 trading days (next monthly entry, no overlap) |
@@ -43,28 +53,48 @@ fundamentals, or bull/bear debate.
 | AAPL   | -17.0% | -1.2% | +15.9pp | 7 Buy / 5 OW / 0 Hold |
 | META   | -50.0% | -15.1% | +34.9pp | 7 Buy / 4 OW / 1 Hold |
 
-## Pooled portfolio
+## Crypto results
 
-Equal-weight, rebalanced monthly across the four stocks:
+| Ticker | Naive every-month Buy | TradingAgents | "Alpha" vs Buy | Ratings |
+|--------|----------------------:|--------------:|---------------:|---------|
+| BTC-USD | -71.5% | -42.9% | +28.6pp | 2 Buy / 10 OW |
+| ETH-USD | -76.3% | -68.9% | +7.3pp | 3 Buy / 9 OW |
 
-| Metric | Value |
-|--------|------:|
-| Naive (always Buy, every month) | -41.5% |
-| TradingAgents (size by rating) | **-19.9%** |
-| Alpha | **+21.5pp** |
+92% of crypto decisions were de-risk calls (vs 44% for stocks). The
+framework basically lived in half-position throughout 2022 crypto.
+
+## Pooled portfolios
+
+Equal-weight, rebalanced monthly:
+
+| Universe | Naive Buy | TradingAgents | "Alpha" vs Buy | Strategy vs always-50% | True signal |
+|----------|----------:|--------------:|---------------:|-----------------------:|------------:|
+| 4 stocks (N=48) | -41.5% | -19.9% | +21.5pp | -21.5% | **+1.6pp** |
+| 2 cryptos (N=24) | -73.6% | -56.9% | +16.7pp | -44.5% | **-12.3pp** |
+
+The "always-50%" column is what you would have made by ignoring the
+model and just holding half-position every month — pure caution, zero
+information. **The "true signal" column is the model's actual edge over
+that.**
+
+For stocks the model squeezes out +1.6pp of real timing skill.
+For crypto it loses -12.3pp by going full-position at the wrong times.
 
 ## The signal quality result
 
-Of the 48 monthly decisions, 21 were "de-risk" calls (Overweight or Hold).
-Of those 21:
+| Universe | De-risk calls | Hit losing months | Precision | Base rate (% months negative) | **Lift over base** |
+|----------|--------------:|------------------:|----------:|------------------------------:|-------------------:|
+| Stocks | 21 / 48 | 19 | 90% | 71% | **+19pp** |
+| Crypto | 19 / 24 | 15 | 79% | 79% | **+0pp** |
 
-- **19 landed on a month with negative subsequent 20-day return**
-- 2 missed (TSLA 2022-03 Hold missed a +42% rally; AAPL 2022-08 Overweight
-  on a flat month)
+For stocks the model identifies losing months **19pp better than the
+base rate** would predict — that's real (binomial p < 0.0001 vs the
+null of random calls).
 
-That's **90% precision** on identifying losing months. Under the null
-hypothesis of random calls (~50% base rate, since ~half the months in 2022
-were down), a 19/21 hit rate has a two-tailed binomial p < 0.0001.
+For crypto the precision matches the base rate exactly: 79% of crypto
+months were down, and the model said "de-risk" 79% of the time it
+guessed (which was 19 of 24 months). It was **right by accident**, not
+because of selection.
 
 | Rating bucket | Mean 20-day return | Count |
 |---------------|-------------------:|------:|
@@ -77,8 +107,7 @@ explicitly says "Sell."
 
 ## Failure modes
 
-The framework does **not** catch crashes, even when they are the obvious
-visible event of the month:
+**Stocks**: The framework does not anticipate single-month melt-downs.
 
 | Stock | Month | Crash | Framework call |
 |-------|-------|------:|----------------|
@@ -86,10 +115,23 @@ visible event of the month:
 | TSLA | 2022-12 | -38% | Overweight (0.5x — partial credit) |
 | META | 2022-04 | -10% | Overweight (0.5x — partial credit) |
 
-So while it pulls back on broad weakness, it does not anticipate single-month
-melt-downs. The largest single-month miss was TSLA 2022-03 — calling Hold
-and missing a +42% rally — which by itself accounts for ~half of TSLA's
-weaker alpha vs the other three stocks.
+The largest single-month miss was TSLA 2022-03 — Hold missing a +42%
+rally — which by itself accounts for most of TSLA's weak alpha.
+
+**Crypto**: All four "Buy" calls were on months that dropped hard.
+
+| Crypto | Month | Move | Framework call |
+|--------|-------|-----:|----------------|
+| ETH | 2022-01 | -33% | Buy (1.0x) |
+| ETH | 2022-02 | -17% | Buy (1.0x) |
+| ETH | 2022-06 | -35% | Buy (1.0x) |
+| BTC | 2022-04 | -15% | Buy (1.0x) |
+
+The technical-analyst prompt was clearly calibrated for equities. Crypto
+realised volatility in 2022 was 2-3× equity volatility, but the same
+"RSI bouncing off 30" / "MACD cross" patterns triggered Buy calls right
+before further -15% to -35% moves. The model has no awareness that the
+distribution it's reading from has wider tails.
 
 ## Comparison: same setup in 2024 H1 (bull market)
 
@@ -103,21 +145,27 @@ no reason to de-risk and adds no alpha.
 
 What the data supports:
 
-1. The market analyst prompt produces signals that correlate strongly with
-   forward 20-day returns in a bear market.
-2. Position sizing alone (no shorts, no full exits) is enough for material
-   alpha when the underlying market is going down on average.
-3. Behaviour generalises across four large-cap tech names in the same period.
+1. The market analyst prompt has weak but positive forward-looking signal
+   on US large-cap tech equities (+1.6pp over a half-position baseline,
+   +19pp lift on de-risk-call precision over the base rate).
+2. The "alpha vs naive Buy" headline numbers are inflated by the model's
+   default-cautious bias. Most of what looks like alpha is the value of
+   not running 100% long during a bear market — not skill in timing.
+3. Behaviour is consistent across four large-cap tech names.
 
 What the data does **not** support:
 
-1. The framework cannot anticipate single-month crashes.
-2. The framework cannot generate short or full-cash signals (no Sell or
-   Underweight in 60 total decisions across this study + the earlier
-   2024 H1 run).
-3. The 2022 sample is one regime — same year, same sector. Findings may not
-   carry to 2008-style broad crashes, sideways markets, or value/cyclical
-   names.
+1. **The framework does not generalise to crypto.** Same prompt, same
+   technical indicators, same provider — but on BTC/ETH the model loses
+   12pp vs a permanent-half-position baseline because its few Buy calls
+   land on months that drop 15-35%. The technical heuristics are tuned
+   to equity volatility distributions.
+2. The framework cannot anticipate single-month crashes (equity or crypto).
+3. The framework cannot generate short or full-cash signals (0 Sell, 0
+   Underweight across 72 decisions).
+4. The 2022 sample is one regime. Findings may not carry to 2008-style
+   broad crashes, sideways markets, value/cyclical equities, or crypto
+   bull regimes.
 
 ## Reproducing
 
@@ -127,19 +175,21 @@ $env:CLAUDE_CODE_OAUTH_TOKEN = "sk-ant-oat01-..."
 
 # Collect decisions for the four stocks (run one at a time to avoid
 # Anthropic subscription rate limits).
-python scripts\run_backtest.py --ticker NVDA --start 2022-01-01 --end 2022-12-31 --frequency monthly
-python scripts\run_backtest.py --ticker TSLA --start 2022-01-01 --end 2022-12-31 --frequency monthly
-python scripts\run_backtest.py --ticker AAPL --start 2022-01-01 --end 2022-12-31 --frequency monthly
-python scripts\run_backtest.py --ticker META --start 2022-01-01 --end 2022-12-31 --frequency monthly
+for ticker in NVDA TSLA AAPL META BTC-USD ETH-USD; do
+    python scripts\run_backtest.py --ticker $ticker --start 2022-01-01 --end 2022-12-31 --frequency monthly
+done
 
 # Per-ticker breakdown
-python scripts\analyze_2022.py NVDA
-python scripts\analyze_2022.py TSLA
-python scripts\analyze_2022.py AAPL
-python scripts\analyze_2022.py META
+for ticker in NVDA TSLA AAPL META BTC-USD ETH-USD; do
+    python scripts\analyze_2022.py $ticker
+done
 
-# Pooled portfolio + de-risking precision
+# Equity-only pooled portfolio (4 stocks)
 python scripts\meta_analysis_2022.py
+
+# Stocks vs crypto, with the dumb-50% baseline that exposes how much of
+# the headline alpha is just default caution
+python scripts\meta_analysis_crypto.py
 ```
 
 ## Open questions
