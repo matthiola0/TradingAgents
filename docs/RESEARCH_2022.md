@@ -5,7 +5,7 @@ signals in a falling market. Run 2026-05-02/03 on the
 [feat/oauth-and-backtest](https://github.com/matthiola0/TradingAgents/tree/feat/oauth-and-backtest)
 branch.
 
-## TL;DR (final, with BTC 2024 and 2025 added)
+## TL;DR (final, with NVDA 2018 + BTC 2022-2025)
 
 > Tested across 4 stocks (NVDA / TSLA / AAPL / META in 2022, NVDA
 > through 2024-H1) and BTC across 4 full years (2022-2025) plus
@@ -26,18 +26,26 @@ branch.
 > framework has no stable timing signal on BTC. The 2023 result was
 > sample noise from a single outlier year.
 >
-> **Where the framework actually works**: US large-cap tech equities
-> in bear regimes (NVDA/META/AAPL 2022 all show +7 to +14pp true
-> signal with 80-100% de-risk precision). Three same-year same-sector
-> cohorts is the most defensible result in the study, but still a
-> small sample.
+> **The 2022 stock result also collapses under replication**:
+> NVDA 2022 was +14pp lift; NVDA 2018 (a different bear year) is
+> -8pp lift, dragging strategy *below* a permanent-half-position
+> baseline by 15pp. The framework completely missed Q4 2018, calling
+> Buy through November and December as NVDA fell -25% each month.
 >
-> Across 11 (ticker, year) cohorts now in the dataset: 4 clearly
-> positive (NVDA/META/AAPL 2022, BTC 2023), 5 around zero or
-> negative (TSLA 2022, ETH 2022/2023, BTC 2024/2025, BTC 2022 only
-> +0.7pp), 2 inconclusive (NVDA 2024 H1 because de-risk rate was
-> only 12%, BTC 2024 because the +61pp "true signal" is the
-> mechanical effect of being long in a +127% market not skill).
+> So treating NVDA / META / AAPL 2022 as three independent positive
+> cohorts almost certainly overstates the evidence: they were the
+> same year, same sector, same macro driver (the 2022 Fed-hike-led
+> tech-led bear market). One year that everything works in is
+> consistent with a model that was fitted to similar conditions in
+> training, not with general bear-market timing skill.
+>
+> Across the full 12 (ticker, year) cohorts, no individual ticker
+> has produced a positive de-risk lift in more than one bear year:
+> NVDA went 2022 yes / 2018 no, BTC went 2023 yes / 2022, 2024,
+> 2025 no, ETH went 0/2. The dataset is consistent with **the
+> framework having no stable positive timing skill in any regime**;
+> the apparent 2022 alpha was 2022-specific, possibly correlated
+> across same-year same-sector names.
 >
 > Versus a naive "always Buy" baseline, this looks like dramatic alpha
 > (+21.5pp on stocks, +16.7pp on crypto). But versus a more honest
@@ -76,10 +84,18 @@ fundamentals, or bull/bear debate.
 
 | Ticker | Naive every-month Buy | TradingAgents | Alpha | Ratings |
 |--------|----------------------:|--------------:|------:|---------|
-| NVDA   | -44.1% | -7.1% | **+36.9pp** | 7 Buy / 4 OW / 1 Hold |
-| TSLA   | -61.0% | -54.7% | +6.3pp | 6 Buy / 5 OW / 1 Hold |
-| AAPL   | -17.0% | -1.2% | +15.9pp | 7 Buy / 5 OW / 0 Hold |
-| META   | -50.0% | -15.1% | +34.9pp | 7 Buy / 4 OW / 1 Hold |
+| NVDA 2022 | -44.1% | -7.1% | **+36.9pp** | 7 Buy / 4 OW / 1 Hold |
+| TSLA 2022 | -61.0% | -54.7% | +6.3pp | 6 Buy / 5 OW / 1 Hold |
+| AAPL 2022 | -17.0% | -1.2% | +15.9pp | 7 Buy / 5 OW / 0 Hold |
+| META 2022 | -50.0% | -15.1% | +34.9pp | 7 Buy / 4 OW / 1 Hold |
+| **NVDA 2018** | **-45.7%** | **-37.4%** | **+8.3pp** | **9 Buy / 3 OW / 0 Hold** |
+
+The NVDA 2018 row was added to test whether the 2022 result
+replicates in another bear year. It does not. Strategy beat naive
+Buy by only 8pp (vs 37pp in 2022), and against the always-50%
+baseline the framework lost 15pp — the model called Buy through the
+worst of Q4 2018 (NVDA -26% in November, -25% in December) and
+was full position the entire way down.
 
 ## Crypto results — full 4-year BTC sweep
 
