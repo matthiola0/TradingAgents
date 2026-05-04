@@ -140,6 +140,16 @@ trade crypto":
   on both, but only BTC corrected. The framework cannot tell BTC and
   ETH apart at all.
 
+- **ETH 2023 weekly (51 obs) confirms the monthly miscalibration.**
+  Re-running ETH 2023 at the framework's native weekly cadence shows
+  the same -8pp de-risk lift (vs -13pp monthly) and the same negative
+  true signal (-2.5pp vs -1.5pp). Higher sampling frequency does not
+  surface a hidden signal — it confirms there isn't one. De-risk
+  precision 11/35 = 31%, against a 39% base rate, means the model is
+  actually slightly worse than guessing on ETH. Buy weeks averaged
+  -1.0% return; OW weeks averaged +1.4% return — the rating ordering
+  is inverted. This is systematic miscalibration, not sample noise.
+
 ## Pooled portfolios
 
 Equal-weight, rebalanced monthly:
