@@ -339,6 +339,54 @@ Change (1) is a single prompt edit with no graph or schema changes.
 Re-running ETH 2023 weekly with that change (~51 propagations) is
 the cleanest test of whether the inversion is fixable.
 
+## Prompt-A experiment: did asset-aware calibration fix ETH?
+
+After committing the asset-aware prompt change, ETH 2023 weekly was
+re-run from scratch (51 baseline entries archived to
+``~/.tradingagents/baselines/eth_2023_pre_prompt_a.json``, then 52
+new propagations through the new prompt).
+
+| Metric | Baseline (equity prompt) | Prompt-A (crypto-aware) | Change |
+|--------|-------------------------:|------------------------:|-------:|
+| N | 51 | 52 | (1 connection error before) |
+| Strategy total ret | +32.5% | +29.5% | -3.0pp |
+| True signal vs always-50% | -2.5pp | -5.6pp | worse |
+| De-risk lift over base rate | -8pp | **+2pp** | **+10pp** |
+| Buy weeks mean +5d return | +0.07% | **+0.80%** | better |
+| OW weeks mean +5d return | +1.78% | **+0.89%** | better (less inverted) |
+| Hold ratings | 0 | 3 | new |
+
+The diagnostic outcome is mixed but telling:
+
+- **The inversion is fixed.** Baseline had Buy weeks (+0.07%) trailing
+  OW weeks (+1.78%) by -1.71pp — wrong direction. Prompt-A has Buy
+  +0.80% vs OW +0.89%, a -0.09pp gap — basically aligned. The
+  rating ordering now points the right way.
+- **De-risk precision lifted from -8pp below base rate to +2pp
+  above.** Modest, but it's the first time a crypto cohort produced
+  a positive lift, and it confirms the diagnosis.
+- **Total return underperforms.** The "3-indicator confluence
+  required for Buy" rule produced more Buy calls in the Jan-Mar
+  rally — which was the right direction — but in a +76% naive-Buy
+  year, even getting Buy frequency right cannot beat the market
+  baseline because dumb-50% also catches a lot of the upside on
+  half position. The "alpha vs naive Buy" headline got worse.
+- **The 2023-08-14 -9.5% Buy was not fixed.** The new prompt still
+  found 3-indicator confluence on that week. This is outside what
+  prompt engineering alone can solve — the technical signal genuinely
+  pointed up that week and the market just dropped.
+
+Net reading: **prompt-A is a real but small improvement**. The
+framework's rating now means roughly what it should on crypto
+(Buy = mildly positive expected, OW = slightly less so) instead
+of the inverted relationship the equity-grade prompt produced.
+But the absolute magnitude of the signal is too weak to beat naive
+buy-and-hold in a strong-uptrend year. To actually trade crypto
+profitably with this framework would require additional changes:
+realised-vol context injection, multi-analyst confluence, or a
+fundamentally different signal source than weekly technical
+indicators.
+
 ## Open questions
 
 - Does the +21.5pp alpha hold in **2008** or **2020-Q1** (broader
