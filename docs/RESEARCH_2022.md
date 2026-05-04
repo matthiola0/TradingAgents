@@ -387,6 +387,56 @@ realised-vol context injection, multi-analyst confluence, or a
 fundamentally different signal source than weekly technical
 indicators.
 
+## Taiwan-stock experiment: currency-locale awareness is missing
+
+Tested whether the framework generalises to non-US listings, using
+TSMC across both its primary Taiwanese listing (2330.TW, TWD) and
+its NYSE ADR (TSM, USD). Same company, same period.
+
+| Cohort | Year | Ratings | Strategy | Naive Buy | Alpha vs Buy | De-risk lift |
+|--------|-----:|---------|---------:|----------:|-------------:|-------------:|
+| 2330.TW | 2022 | 12 Buy | -19.8% | -19.8% | +0pp | n/a (no de-risk) |
+| 2330.TW | 2018 | 8 Buy / 4 OW | -12.2% | -3.2% | -8.9pp | -33pp |
+| TSM     | 2022 | 8 Buy / 3 OW / 1 Hold | -19.7% | -35.4% | **+15.8pp** | **+8pp** |
+
+The 2330.TW results show no useful timing signal in either year:
+2022 produced 12 consecutive Buy calls in a -14% bear, and 2018
+produced four Overweight calls that all landed on positive months
+(0/4 precision against a 33% base rate, -33pp lift).
+
+The TSM ADR for the same company in 2022 produced a Hold call on
+2022-06-06 that perfectly avoided a -18.4% one-month drop, plus
+three Overweight calls that landed mostly correctly (3/4 = 75%
+precision against a 67% base rate, +8pp lift). Magnitude on par
+with AAPL 2022 (+9pp lift).
+
+The mechanism appears to be currency-locale awareness. TSM USD
+fell -35% in 2022; 2330.TW TWD fell only -20% over the same period
+because the TWD weakened ~15% against the USD. The TWD-denominated
+price chart never broke key technical levels as decisively — RSI
+did not push as deeply oversold, MACD did not register as severe
+a divergence, and Bollinger bands looked like ordinary pullbacks
+rather than capitulation. The market analyst reads OHLCV numbers
+without any awareness that they are denominated in a depreciating
+local currency, so the same underlying business deterioration
+produces different technical signatures depending on listing.
+
+Three levels of fix, in increasing scope:
+
+1. **Use the ADR when available.** Roughly 50 of Taiwan's larger
+   listings have NYSE/NASDAQ ADRs (TSM, UMC, ASX, HMS, etc.).
+   Build the model on the ADR; execute trades on the local listing.
+2. **Inject FX context into the prompt.** Pass the trailing
+   30-day local-currency-vs-USD move into instrument_context so
+   the model can mentally adjust thresholds.
+3. **Convert OHLCV to USD-equivalent in the data layer.** All
+   technical indicators are then computed on a globally-comparable
+   price series, regardless of listing.
+
+(1) is zero engineering and probably enough for individual users
+who have ADR access. (3) is the principled fix and would also
+help with European, Hong Kong, and Japanese listings.
+
 ## Open questions
 
 - Does the +21.5pp alpha hold in **2008** or **2020-Q1** (broader
