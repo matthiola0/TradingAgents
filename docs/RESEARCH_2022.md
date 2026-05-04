@@ -284,6 +284,61 @@ python scripts\meta_analysis_2022.py
 python scripts\meta_analysis_crypto.py
 ```
 
+## ETH inverted-signal root cause
+
+Reading the saved analyst reports for the worst ETH calls (in
+``~/.tradingagents/logs/ETH-USD/``) revealed a consistent failure mode.
+
+For weeks where the model called Buy and ETH then dropped 9-10%, the
+reports read like textbook stock-trading bullish setups:
+
+- 2023-08-14 (Buy → -9.5%): "MACD positive crossover, RSI positive
+  divergence, volatility compression, sellers capitulating, 200 SMA
+  support holding — recovery bounce expected toward $1,877-$1,900."
+- 2023-04-17 (Buy → -9.7%): even the report itself flagged RSI 68.6 as
+  "approaching overbought," but the model went full position anyway
+  citing MACD acceleration and a strong long-term uptrend.
+- 2023-06-12 (Buy → -0.9%): "Capitulation selling with early
+  stabilization, current dip is a buying opportunity."
+
+For weeks where it called Overweight and ETH then rallied 9-17%, the
+reports show over-sensitivity to short-term pullbacks:
+
+- 2023-02-13 (OW → +12.3%): "Pullback phase, MACD weakening 90% from
+  peak, wait for bounce confirmation."
+- 2023-04-10 (OW → +9.5%): "Consolidation within strong uptrend,
+  volatility contracting."
+
+The market analyst prompt (in
+``tradingagents/agents/analysts/market_analyst.py``) carries
+indicator-interpretation guidance like "RSI 70/30 thresholds" and
+"MACD crossovers as trend reversal signals" that implicitly assume
+equity-grade volatility (~30-40% annualised). On ETH 2023 the
+realised volatility was ~80%. The same indicator pattern that gives
+a 70% bullish hit rate on stocks gives roughly 50/50 on ETH because
+the tails are much wider. The model has no awareness that it's
+reading ETH versus a stock — ``build_instrument_context()`` only
+forwards the ticker string.
+
+Three concrete prompt changes, in increasing order of intrusiveness,
+would be cheap to test:
+
+1. **Asset-aware threshold scaling.** Add "if the asset is crypto
+   (e.g. BTC, ETH, SOL), expand RSI thresholds to 20/80 and require
+   confluence of three or more indicators before issuing Buy due to
+   higher realised tail risk."
+2. **Confidence → 5-tier remapping.** Make Overweight reserved for
+   genuinely cautious positioning (real negative-skew signal), and
+   route mid-strength bullish setups to Hold rather than Buy. Keep
+   Buy for setups with at least 3-indicator confluence.
+3. **Realised-vol context injection.** Pass the trailing 30-day
+   realised volatility of the instrument into the prompt so the
+   model can calibrate its own thresholds dynamically.
+
+Change (1) is a single prompt edit with no graph or schema changes.
+Re-running ETH 2023 weekly with that change (~51 propagations) is
+the cleanest test of whether the inversion is fixable.
+
 ## Open questions
 
 - Does the +21.5pp alpha hold in **2008** or **2020-Q1** (broader
