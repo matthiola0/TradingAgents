@@ -5,7 +5,43 @@ signals in a falling market. Run 2026-05-02/03 on the
 [feat/oauth-and-backtest](https://github.com/matthiola0/TradingAgents/tree/feat/oauth-and-backtest)
 branch.
 
-## TL;DR (final, with NVDA 2018 + BTC 2022-2025)
+## TL;DR (final, with full 5+ year datasets)
+
+> Tested across 25 (ticker, year) cohorts spanning BTC 2018-2025
+> (8 full years), NVDA 2018-2024 (6+ years), ETH 2022-2025 (4 years),
+> 2330.TW 2018+2022, plus single-year cohorts of TSLA/META/AAPL/TSM
+> in 2022.
+>
+> The earlier 4-cohort BTC reading ("no stable signal") **reverses
+> with the full 8-year dataset**:
+>
+> | BTC year | true_signal vs always-50% | de-risk precision |
+> |---------:|--------------------------:|------------------:|
+> | 2018 | -14pp | 100% (3/3) |
+> | 2019 | +35pp | 50% (2/4) |
+> | 2020 | +75pp | 40% (2/5) |
+> | 2021 | +10pp | 67% (2/3) |
+> | 2022 | +0.7pp | 90% (9/10) |
+> | 2023 | +40pp | 75% (3/4) |
+> | 2024 | +61pp | 40% (2/5) |
+> | 2025 | -0.1pp | 43% (3/7) |
+>
+> 7 of 8 years are positive on true_signal, mean +26pp. Average
+> de-risk precision ~63%, vs ~50% random baseline. The earlier
+> "BTC has no signal" conclusion came from a 4-year window that
+> happened to mix two strong years with two weak ones; sample
+> expansion to 8 years inverts the reading.
+>
+> NVDA also looks more stable with 6+ years: true_signal positive in
+> 5/7 cohorts (2020, 2021, 2022, 2023, 2024). The earlier "NVDA
+> doesn't replicate" claim was based on 2018 alone vs 2022 alone.
+>
+> ETH remains the one consistent failure: 1/4 years positive across
+> 2022-2025, even with the prompt-A asset-aware calibration applied
+> to 2023.
+>
+> 2330.TW (TWSE listing for TSMC) fails on both years tested,
+> consistent with the currency-locale blind-spot diagnosis.
 
 > Tested across 4 stocks (NVDA / TSLA / AAPL / META in 2022, NVDA
 > through 2024-H1) and BTC across 4 full years (2022-2025) plus
