@@ -433,27 +433,62 @@
         .then(gd => {
           gd.on("plotly_click", (ev) => {
             if (!ev.points || !ev.points.length) return;
-            const date = ev.points[0].customdata;
-            if (typeof date === "string") openModal(date);
+            // ev.points contains all overlapping traces — find the one with customdata
+            for (const p of ev.points) {
+              if (p.customdata) {
+                openModal(p.customdata);
+                return;
+              }
+            }
+            // Fallback: if a non-marker line was clicked, snap to nearest signal date
+            const xVal = ev.points[0].x;
+            if (xVal) openModal(typeof xVal === "string" ? xVal : xVal.toISOString().slice(0, 10));
           });
         });
     }
 
     async function openModal(date) {
       const ticker = CURRENT_TICKER;
+      console.log("openModal", { ticker, date });
       if (CURRENT_REPORTS_TICKER !== ticker) {
-        const resp = await fetch(`reports/${encodeURIComponent(ticker)}.json`);
-        if (!resp.ok) {
-          alert("No reports found for " + ticker);
+        const url = `reports/${encodeURIComponent(ticker)}.json`;
+        console.log("fetching", url);
+        try {
+          const resp = await fetch(url);
+          console.log("response status:", resp.status);
+          if (!resp.ok) {
+            alert(`Failed to load ${url} (HTTP ${resp.status}). Are you serving the page via web/serve.py? Direct file:// access may block fetch.`);
+            return;
+          }
+          CURRENT_REPORTS = await resp.json();
+          CURRENT_REPORTS_TICKER = ticker;
+          console.log("loaded reports for", ticker, "dates:", Object.keys(CURRENT_REPORTS).length);
+        } catch (e) {
+          alert(`Failed to load reports: ${e}\n\nIf you opened the page directly via file://, run "python web/serve.py" instead — fetch() is blocked from file:// in most browsers.`);
           return;
         }
-        CURRENT_REPORTS = await resp.json();
-        CURRENT_REPORTS_TICKER = ticker;
       }
-      const report = CURRENT_REPORTS[date];
+      // Try exact date match first; fall back to closest available date
+      let report = CURRENT_REPORTS[date];
       if (!report) {
-        alert(`No report for ${date}`);
-        return;
+        const allDates = Object.keys(CURRENT_REPORTS).sort();
+        const target = new Date(date).getTime();
+        let closest = null;
+        let closestDiff = Infinity;
+        for (const d of allDates) {
+          const diff = Math.abs(new Date(d).getTime() - target);
+          if (diff < closestDiff) {
+            closestDiff = diff;
+            closest = d;
+          }
+        }
+        if (closest && closestDiff < 14 * 86400000) {
+          report = CURRENT_REPORTS[closest];
+          date = closest + " (closest match)";
+        } else {
+          alert(`No report for ${date}. Available dates: ${allDates.length}, first: ${allDates[0]}, last: ${allDates[allDates.length - 1]}`);
+          return;
+        }
       }
       document.getElementById("modal-title").textContent = `${ticker} — ${date}`;
       const tabs = [
