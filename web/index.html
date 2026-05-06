@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TradingAgents Backtest Dashboard</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <style>
+    :root {
+      --bg: #0e1117;
+      --panel: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-dim: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --lime: #7ee787;
+      --gray: #6e7681;
+      --red: #f85149;
+      --orange: #d29922;
+      --purple: #bc8cff;
+    }
+    [data-theme="light"] {
+      --bg: #ffffff;
+      --panel: #f6f8fa;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --text-dim: #59636e;
+      --accent: #0969da;
+      --green: #1a7f37;
+      --lime: #2da44e;
+      --gray: #6e7781;
+      --red: #cf222e;
+      --orange: #9a6700;
+      --purple: #8250df;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 16px;
+    }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px;
+    }
+    h1 { font-size: 20px; font-weight: 600; }
+    h1 .small { font-weight: 400; color: var(--text-dim); font-size: 13px; }
+    button {
+      background: var(--panel); color: var(--text); border: 1px solid var(--border);
+      padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
+    }
+    button:hover { border-color: var(--accent); }
+    .controls {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+      padding: 12px; margin-bottom: 12px;
+    }
+    .control-group { display: flex; flex-direction: column; gap: 4px; }
+    .control-group label { font-size: 12px; color: var(--text-dim); }
+    select {
+      background: var(--bg); color: var(--text); border: 1px solid var(--border);
+      padding: 6px 10px; border-radius: 6px; font-size: 13px; cursor: pointer;
+    }
+    .metadata {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px;
+      background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+      padding: 12px; margin-bottom: 12px; font-size: 12px;
+    }
+    .metadata .item { display: flex; flex-direction: column; }
+    .metadata .item .label { color: var(--text-dim); font-size: 11px; }
+    .metadata .item .val { font-weight: 600; font-size: 14px; margin-top: 2px; }
+    .pos { color: var(--green); }
+    .neg { color: var(--red); }
+    #chart {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+      padding: 8px; height: calc(100vh - 280px); min-height: 400px;
+    }
+    .legend {
+      display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px;
+      color: var(--text-dim); margin-top: 8px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot.buy { background: var(--green); }
+    .dot.ow { background: var(--lime); }
+    .dot.hold { background: var(--gray); }
+    .dot.stop { background: var(--red); }
+    .swatch { width: 16px; height: 10px; border-radius: 2px; opacity: 0.4; }
+    .swatch.full { background: var(--purple); }
+    .swatch.half { background: var(--purple); opacity: 0.2; }
+    .swatch.brake { background: var(--red); opacity: 0.3; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+      display: none; justify-content: center; align-items: center; z-index: 100;
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+      width: 90vw; max-width: 900px; max-height: 85vh;
+      display: flex; flex-direction: column;
+    }
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+    }
+    .modal-title { font-size: 16px; font-weight: 600; }
+    .modal-body {
+      padding: 16px; overflow-y: auto; font-size: 13px;
+    }
+    .modal-tabs {
+      display: flex; gap: 4px; padding: 8px 16px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-tab {
+      padding: 6px 12px; cursor: pointer; border-radius: 6px 6px 0 0;
+      color: var(--text-dim); font-size: 12px; user-select: none;
+    }
+    .modal-tab.active { color: var(--text); background: var(--bg); border: 1px solid var(--border); border-bottom: none; }
+    .modal-body pre { white-space: pre-wrap; word-wrap: break-word; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.6; color: var(--text); }
+    .empty { color: var(--text-dim); font-style: italic; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TradingAgents <span class="small">Backtest Dashboard</span></h1>
+    <button id="theme-toggle" title="Toggle theme">☀ / 🌙</button>
+  </header>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>Ticker</label>
+      <select id="ticker-select"></select>
+    </div>
+    <div class="control-group">
+      <label>Frequency</label>
+      <select id="frequency-select"></select>
+    </div>
+    <div class="control-group" style="justify-content: end">
+      <span style="font-size: 12px; color: var(--text-dim)" id="ticker-info"></span>
+    </div>
+  </div>
+
+  <div class="metadata" id="metadata"></div>
+
+  <div id="chart"></div>
+
+  <div class="legend">
+    <span class="legend-item"><span class="dot buy"></span> Buy (×2 confluence = larger)</span>
+    <span class="legend-item"><span class="dot ow"></span> Overweight</span>
+    <span class="legend-item"><span class="dot hold"></span> Hold / flat</span>
+    <span class="legend-item"><span class="dot stop"></span> Stop loss hit</span>
+    <span class="legend-item"><span class="swatch full"></span> 100% position band</span>
+    <span class="legend-item"><span class="swatch half"></span> 50–70% position band</span>
+    <span class="legend-item"><span class="swatch brake"></span> Drawdown brake active</span>
+    <span class="legend-item">— Strategy NAV  ··· Naive Buy&Hold</span>
+    <span class="legend-item" style="color: var(--accent)">Click any point for full LLM report</span>
+  </div>
+
+  <div class="modal-backdrop" id="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="modal-title">—</div>
+        <button id="modal-close">×</button>
+      </div>
+      <div class="modal-tabs" id="modal-tabs"></div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <script>
+    let DATA = null;
+    let CURRENT_TICKER = null;
+    let CURRENT_FREQ = null;
+    let CURRENT_REPORTS = null;
+    let CURRENT_REPORTS_TICKER = null;
+
+    const fmtPct = (x, decimals = 1) => (x >= 0 ? "+" : "") + (x * 100).toFixed(decimals) + "%";
+    const fmtPctNum = (n, decimals = 1) => (n >= 0 ? "+" : "") + n.toFixed(decimals) + "%";
+
+    async function loadData() {
+      const resp = await fetch("data.json");
+      DATA = await resp.json();
+      initSelectors();
+    }
+
+    function initSelectors() {
+      const tickerSelect = document.getElementById("ticker-select");
+      const freqSelect = document.getElementById("frequency-select");
+      const tickers = Object.keys(DATA.tickers).sort((a, b) => {
+        // Crypto first, then equity, alphabetical within
+        const ac = DATA.tickers[a].asset_class, bc = DATA.tickers[b].asset_class;
+        if (ac !== bc) return ac === "crypto" ? -1 : 1;
+        return a.localeCompare(b);
+      });
+      tickerSelect.innerHTML = tickers.map(t => {
+        const cls = DATA.tickers[t].asset_class === "crypto" ? "🪙" : "📈";
+        return `<option value="${t}">${cls} ${t}</option>`;
+      }).join("");
+
+      tickerSelect.addEventListener("change", () => {
+        CURRENT_TICKER = tickerSelect.value;
+        populateFreq();
+        render();
+      });
+      freqSelect.addEventListener("change", () => {
+        CURRENT_FREQ = freqSelect.value;
+        render();
+      });
+
+      CURRENT_TICKER = tickers[0];
+      tickerSelect.value = CURRENT_TICKER;
+      populateFreq();
+      render();
+    }
+
+    function populateFreq() {
+      const t = DATA.tickers[CURRENT_TICKER];
+      const freqs = t.frequencies;
+      const sel = document.getElementById("frequency-select");
+      sel.innerHTML = freqs.map(f => `<option value="${f}">${f}</option>`).join("");
+      CURRENT_FREQ = freqs[0];
+      sel.value = CURRENT_FREQ;
+    }
+
+    function render() {
+      const t = DATA.tickers[CURRENT_TICKER];
+      const cadence = t[CURRENT_FREQ];
+      if (!cadence) return;
+      renderMetadata(cadence.metadata);
+      renderChart(cadence.data, cadence.metadata);
+      document.getElementById("ticker-info").textContent =
+        `${cadence.metadata.strategy_label} · ${cadence.metadata.n_trades} trades`;
+    }
+
+    function renderMetadata(meta) {
+      const stratDelta = meta.v1_total_ret_pct - meta.naive_total_ret_pct;
+      const items = [
+        ["Period", meta.period, ""],
+        ["Years", meta.n_years.toFixed(1), ""],
+        ["Trades", meta.n_trades, ""],
+        ["Naive total", fmtPctNum(meta.naive_total_ret_pct), meta.naive_total_ret_pct >= 0 ? "pos" : "neg"],
+        ["Strategy total", fmtPctNum(meta.v1_total_ret_pct), meta.v1_total_ret_pct >= 0 ? "pos" : "neg"],
+        ["Δ vs naive", fmtPctNum(stratDelta) + "pp", stratDelta >= 0 ? "pos" : "neg"],
+        ["Strategy CAGR", fmtPctNum(meta.v1_cagr_pct), meta.v1_cagr_pct >= 0 ? "pos" : "neg"],
+        ["Strategy max DD", fmtPctNum(meta.v1_max_dd_pct), "neg"],
+        ["Naive max DD", fmtPctNum(meta.naive_max_dd_pct), "neg"],
+        ["Buy / OW / Hold", `${meta.rating_counts.Buy} / ${meta.rating_counts.Overweight} / ${meta.rating_counts.Hold}`, ""],
+        ["Stops fired", meta.stops, meta.stops > 0 ? "neg" : ""],
+        ["Brakes fired", meta.brakes, meta.brakes > 0 ? "neg" : ""],
+      ];
+      document.getElementById("metadata").innerHTML = items.map(([k, v, cls]) =>
+        `<div class="item"><span class="label">${k}</span><span class="val ${cls}">${v}</span></div>`
+      ).join("");
+    }
+
+    function ratingColor(r) {
+      if (r === "Buy") return "var-green";
+      if (r === "Overweight") return "var-lime";
+      if (r === "Hold") return "var-gray";
+      return "var-orange";
+    }
+
+    function getCssVar(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    function renderChart(data, meta) {
+      const dates = data.map(d => d.date);
+      const prices = data.map(d => d.price);
+      const v1 = data.map(d => d.v1_equity);
+      const naive = data.map(d => d.naive_equity);
+
+      const COLORS = {
+        buy: getCssVar("--green"),
+        ow: getCssVar("--lime"),
+        hold: getCssVar("--gray"),
+        stop: getCssVar("--red"),
+        purple: getCssVar("--purple"),
+      };
+
+      // Marker styling per point
+      const markerColors = data.map(d => {
+        if (d.stop_hit) return COLORS.stop;
+        if (d.rating === "Buy") return COLORS.buy;
+        if (d.rating === "Overweight") return COLORS.ow;
+        if (d.rating === "Hold") return COLORS.hold;
+        return COLORS.hold;
+      });
+      // Buy with confluence = bigger marker
+      const markerSizes = data.map(d => {
+        if (d.actual_pos === 1.0) return 14;
+        if (d.actual_pos > 0) return 9;
+        return 6;
+      });
+      const markerSymbols = data.map(d => d.stop_hit ? "x" : "circle");
+
+      // Tooltip text
+      const hoverTexts = data.map(d => {
+        const pp = (n) => (n >= 0 ? "+" : "") + (n * 100).toFixed(1) + "%";
+        return `<b>${d.date}</b><br>` +
+          `Price: $${d.price ? d.price.toFixed(2) : "?"}<br>` +
+          `Strategy NAV: ${d.v1_equity.toFixed(3)} (${pp(d.v1_equity - 1)})<br>` +
+          `Naive NAV: ${d.naive_equity.toFixed(3)} (${pp(d.naive_equity - 1)})<br>` +
+          `<br><b>Rating: ${d.rating}</b> · target ${(d.target_pos * 100).toFixed(0)}%, actual ${(d.actual_pos * 100).toFixed(0)}%<br>` +
+          `Period raw return: ${pp(d.raw_return)}<br>` +
+          `Realised P&L: ${pp(d.realized_pnl)}<br>` +
+          `${d.summary}<br>` +
+          `<i>(click for full LLM report)</i>`;
+      });
+
+      // Build position bands as shape rectangles between consecutive dates
+      const shapes = [];
+      for (let i = 0; i < data.length; i++) {
+        const p = data[i];
+        const next = data[i + 1];
+        const x0 = p.date;
+        const x1 = next ? next.date : p.date;
+        if (p.brake_active) {
+          shapes.push({
+            type: "rect", xref: "x", yref: "y2",
+            x0, x1, y0: 0, y1: 1.0,
+            fillcolor: COLORS.stop, opacity: 0.10, line: { width: 0 },
+          });
+        } else if (p.actual_pos > 0) {
+          shapes.push({
+            type: "rect", xref: "x", yref: "y2",
+            x0, x1, y0: 0, y1: p.actual_pos,
+            fillcolor: COLORS.purple,
+            opacity: p.actual_pos === 1.0 ? 0.20 : 0.10,
+            line: { width: 0 },
+          });
+        }
+      }
+
+      // Position percent annotation labels — one per change point
+      const annotations = [];
+      let lastPos = -1;
+      for (let i = 0; i < data.length; i++) {
+        const p = data[i];
+        const pos = p.brake_active ? -1 : p.actual_pos;
+        if (pos !== lastPos) {
+          let label;
+          if (p.brake_active) label = "BRAKE";
+          else if (pos === 0) label = "0%";
+          else label = (pos * 100).toFixed(0) + "%";
+          annotations.push({
+            x: p.date, y: Math.max(pos, 0.05),
+            xref: "x", yref: "y2",
+            text: label, showarrow: false,
+            font: { size: 10, color: p.brake_active ? COLORS.stop : COLORS.purple },
+            yshift: 8, opacity: 0.8,
+          });
+          lastPos = pos;
+        }
+      }
+
+      const traces = [
+        {
+          name: "Price",
+          x: dates, y: prices,
+          type: "scatter", mode: "lines",
+          line: { color: getCssVar("--text-dim"), width: 1.5 },
+          yaxis: "y",
+          hovertemplate: "%{x}<br>Price: $%{y:.2f}<extra></extra>",
+        },
+        {
+          name: "Naive Buy&Hold",
+          x: dates, y: naive,
+          type: "scatter", mode: "lines",
+          line: { color: getCssVar("--text-dim"), width: 1.5, dash: "dot" },
+          yaxis: "y3",
+          hovertemplate: "%{x}<br>Naive NAV: %{y:.3f}<extra></extra>",
+        },
+        {
+          name: "Strategy NAV",
+          x: dates, y: v1,
+          type: "scatter", mode: "lines",
+          line: { color: getCssVar("--accent"), width: 2.5 },
+          yaxis: "y3",
+          hovertemplate: "%{x}<br>Strategy NAV: %{y:.3f}<extra></extra>",
+        },
+        {
+          name: "Signal",
+          x: dates, y: v1,
+          type: "scatter", mode: "markers",
+          marker: { color: markerColors, size: markerSizes, symbol: markerSymbols,
+                    line: { color: getCssVar("--bg"), width: 1 } },
+          yaxis: "y3",
+          text: hoverTexts,
+          hovertemplate: "%{text}<extra></extra>",
+          customdata: data.map(d => d.date),
+        },
+      ];
+
+      const layout = {
+        paper_bgcolor: "rgba(0,0,0,0)",
+        plot_bgcolor: "rgba(0,0,0,0)",
+        font: { color: getCssVar("--text") },
+        margin: { l: 60, r: 60, t: 30, b: 50 },
+        showlegend: true,
+        legend: { orientation: "h", y: 1.08, x: 0, bgcolor: "rgba(0,0,0,0)" },
+        xaxis: { gridcolor: getCssVar("--border"), zerolinecolor: getCssVar("--border") },
+        yaxis: {
+          title: { text: `${CURRENT_TICKER} price`, font: { color: getCssVar("--text-dim") } },
+          gridcolor: getCssVar("--border"), zerolinecolor: getCssVar("--border"),
+          side: "left", domain: [0.0, 1.0],
+        },
+        yaxis2: {
+          title: { text: "Position", font: { color: getCssVar("--purple") }, standoff: 4 },
+          range: [0, 1],
+          tickvals: [0, 0.5, 0.7, 1.0],
+          ticktext: ["0%", "50%", "70%", "100%"],
+          overlaying: "y3", side: "right", showgrid: false,
+          tickfont: { color: getCssVar("--purple"), size: 10 },
+          position: 0.97,
+        },
+        yaxis3: {
+          title: { text: "NAV (start = 1.0)", font: { color: getCssVar("--accent") } },
+          gridcolor: getCssVar("--border"),
+          overlaying: "y", side: "right",
+          tickfont: { color: getCssVar("--accent") },
+        },
+        shapes, annotations,
+        hovermode: "closest",
+      };
+      Plotly.newPlot("chart", traces, layout, { displaylogo: false, responsive: true })
+        .then(gd => {
+          gd.on("plotly_click", (ev) => {
+            if (!ev.points || !ev.points.length) return;
+            const date = ev.points[0].customdata;
+            if (typeof date === "string") openModal(date);
+          });
+        });
+    }
+
+    async function openModal(date) {
+      const ticker = CURRENT_TICKER;
+      if (CURRENT_REPORTS_TICKER !== ticker) {
+        const resp = await fetch(`reports/${encodeURIComponent(ticker)}.json`);
+        if (!resp.ok) {
+          alert("No reports found for " + ticker);
+          return;
+        }
+        CURRENT_REPORTS = await resp.json();
+        CURRENT_REPORTS_TICKER = ticker;
+      }
+      const report = CURRENT_REPORTS[date];
+      if (!report) {
+        alert(`No report for ${date}`);
+        return;
+      }
+      document.getElementById("modal-title").textContent = `${ticker} — ${date}`;
+      const tabs = [
+        ["decision", "Final Decision", "final_trade_decision"],
+        ["trader", "Trader Plan", "trader_investment_plan"],
+        ["plan", "Research Manager", "investment_plan"],
+        ["market", "Market Analyst", "market_report"],
+        ["sentiment", "Sentiment", "sentiment_report"],
+        ["news", "News", "news_report"],
+        ["fundamentals", "Fundamentals", "fundamentals_report"],
+      ];
+      const tabsEl = document.getElementById("modal-tabs");
+      const bodyEl = document.getElementById("modal-body");
+      tabsEl.innerHTML = tabs.map(([id, label, key], i) => {
+        const has = report[key] && report[key].trim();
+        const cls = i === 0 ? "modal-tab active" : "modal-tab";
+        return `<div class="${cls}" data-key="${key}" data-label="${label}" style="${has ? "" : "opacity:0.4"}">${label}</div>`;
+      }).join("");
+
+      function showTab(key, label) {
+        const text = report[key] || "";
+        bodyEl.innerHTML = text.trim()
+          ? `<pre>${text.replace(/[<>]/g, c => c === "<" ? "&lt;" : "&gt;")}</pre>`
+          : `<div class="empty">No ${label} content for this run.</div>`;
+      }
+      showTab(tabs[0][2], tabs[0][1]);
+      tabsEl.querySelectorAll(".modal-tab").forEach(el => {
+        el.onclick = () => {
+          tabsEl.querySelectorAll(".modal-tab").forEach(x => x.classList.remove("active"));
+          el.classList.add("active");
+          showTab(el.dataset.key, el.dataset.label);
+        };
+      });
+      document.getElementById("modal-backdrop").classList.add("show");
+    }
+
+    function closeModal() {
+      document.getElementById("modal-backdrop").classList.remove("show");
+    }
+    document.getElementById("modal-close").onclick = closeModal;
+    document.getElementById("modal-backdrop").onclick = (e) => {
+      if (e.target.id === "modal-backdrop") closeModal();
+    };
+    document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+    document.getElementById("theme-toggle").onclick = () => {
+      const cur = document.documentElement.dataset.theme;
+      document.documentElement.dataset.theme = (cur === "dark") ? "light" : "dark";
+      // Re-render to pick up new colors
+      if (CURRENT_TICKER && CURRENT_FREQ) render();
+    };
+
+    loadData();
+  </script>
+</body>
+</html>
