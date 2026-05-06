@@ -147,6 +147,9 @@
     <div class="control-group" style="justify-content: end">
       <span style="font-size: 12px; color: var(--text-dim)" id="ticker-info"></span>
     </div>
+    <div class="control-group" style="justify-content: end">
+      <button id="open-recent" title="Open the most recent decision">📋</button>
+    </div>
   </div>
 
   <div class="metadata" id="metadata"></div>
@@ -589,9 +592,13 @@
         },
         shapes, annotations,
         hovermode: "closest",
+        dragmode: "pan",
       };
-      Plotly.newPlot("chart", traces, layout, { displaylogo: false, responsive: true })
+      Plotly.newPlot("chart", traces, layout, {
+        displaylogo: false, responsive: true, scrollZoom: true,
+      })
         .then(gd => {
+          console.log("Plotly chart ready, attaching click handler. graph div:", gd);
           gd.on("plotly_click", (ev) => {
             console.log("plotly_click fired", ev);
             if (!ev.points || !ev.points.length) return;
@@ -605,6 +612,16 @@
             const xVal = ev.points[0].x;
             console.log("no customdata, falling back to x:", xVal);
             if (xVal) openModal(toDateStr(xVal));
+          });
+
+          // Backup: if user double-clicks anywhere on the plot area,
+          // open the nearest signal date. Plotly emits plotly_doubleclick
+          // even when dragmode would swallow single clicks on traces.
+          gd.on("plotly_doubleclick", () => {
+            console.log("plotly_doubleclick — using last data point as fallback");
+            const lastDate = data[data.length - 1].date;
+            openModal(lastDate);
+            return false;
           });
         });
     }
@@ -720,6 +737,15 @@
       LANG = (LANG === "zh") ? "en" : "zh";
       localStorage.setItem("dash_lang", LANG);
       applyLanguage();
+    };
+
+    // Backup button: open most recent decision (in case Plotly clicks not firing)
+    document.getElementById("open-recent").onclick = () => {
+      if (!CURRENT_TICKER || !CURRENT_FREQ) return;
+      const cad = DATA.tickers[CURRENT_TICKER][CURRENT_FREQ];
+      if (cad && cad.data.length > 0) {
+        openModal(cad.data[cad.data.length - 1].date);
+      }
     };
 
     loadData().then(() => applyLanguage());
