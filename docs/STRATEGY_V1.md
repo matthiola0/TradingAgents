@@ -29,19 +29,30 @@ Same V1 rules applied to other tickers in the memory log:
 |-------|------:|------------:|---------:|---------:|------:|--------:|:---------------:|
 | BTC-USD | 8 | +227% | +1425% | -81% | -37% | ~40% | ✓ |
 | SOL-USD | 4 | +44% | +611% | -92% | -41% | ~63% | ✓ |
+| AVAX-USD | 4 | -41% | **+169%** | -87% | -30% | ~28% | ✓✓ +210pp |
+| DOGE-USD | 4 | -56% | -17% | -88% | -62% | ~-5% | ✓ +39pp |
 | ETH-USD | 4 | +28% | +59% | -76% | -39% | ~12% | ✓ (modest) |
+| BNB-USD | 4 | +99% | +77% | -67% | -33% | ~15% | **✗ -22pp** |
 | NVDA | 6.5 | **+1695%** | +752% | -64% | -37% | ~38% | **✗** |
 
-**The strategy is crypto-only.** NVDA's secular uptrend (+1695% over
-6.5 years, max single-month loss -28%) is the wrong regime for V1's
-stop-loss logic — it cuts profitable runs early and 13 stops in 78
-trades each shave -15% off positions that later recover. For equities
-with strong secular uptrends, plain buy-and-hold wins.
+**Refined: V1 needs fat-tail volatility to work.** Across 6 crypto
+assets and 1 equity, V1 wins big on assets with frequent -30%+ months
+(BTC, SOL, AVAX, DOGE), modestly on borderline cases (ETH), and **fails
+on lower-volatility utility assets (BNB)** — same failure mode as NVDA.
 
-For crypto, the same -15% stop converts catastrophic months (BTC
-2018-11 -38%, SOL 2022-11 -52%) into capped losses, which dominates
-the cost of cutting some winning runs. The fat-tail asymmetry of
-crypto returns is what makes the strategy work.
+BNB is the surprising case: as the 4th-largest crypto by market cap,
+one might expect V1 to work. But BNB 2022-2025 was a steady +99% with
+relatively shallow drawdowns. The model issued 35 Overweight calls
+out of 48 (73%, vs ~25% on BTC), and confluence + stop loss cut
+profitable runs short. BNB acts more like an equity than a fat-tail
+crypto.
+
+The pattern is clear:
+- **V1 works**: BTC, SOL, AVAX (all had -50%+ drawdowns and recoveries)
+- **V1 fails**: BNB, NVDA (steady uptrend, smaller drawdowns)
+
+Use V1 for high-vol crypto majors. Use V2 (the no-stop-loss equity
+strategy) for low-vol assets, including stable utility tokens like BNB.
 
 ## Why each rule is in there
 
