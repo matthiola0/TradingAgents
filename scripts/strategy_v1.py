@@ -22,7 +22,6 @@ import pandas as pd
 import yfinance as yf
 
 LOG = Path.home() / ".tradingagents" / "memory" / "trading_memory.md"
-TICKER = "BTC-USD"
 HOLDING_DAYS = 20  # monthly cadence — exit at next month's signal
 FEE = 0.001  # 0.1% Binance spot
 STOP_LOSS = -0.15
@@ -42,11 +41,10 @@ class Trade:
     on_brake: bool
 
 
-def load_btc_monthly() -> list[tuple[str, str]]:
-    """Return [(date, rating), ...] for BTC monthly entries from memory log."""
+def load_monthly(ticker: str) -> list[tuple[str, str]]:
+    """Return [(date, rating), ...] for monthly entries of `ticker` from memory log."""
     text = LOG.read_text(encoding="utf-8")
-    # Match BTC-USD monthly entries (skip weekly cohorts)
-    pattern = re.compile(r"\[(\d{4}-\d{2}-\d{2}) \| BTC-USD \| (\w+) \|")
+    pattern = re.compile(rf"\[(\d{{4}}-\d{{2}}-\d{{2}}) \| {re.escape(ticker)} \| (\w+) \|")
     entries = pattern.findall(text)
     # Group by year-month and keep only first Monday-ish entry per month
     seen_ym = set()
@@ -201,11 +199,17 @@ def fmt_table(label: str, total_ret: float, max_dd: float, trades: list[Trade] |
 
 
 def main() -> None:
-    entries = load_btc_monthly()
-    print(f"BTC monthly cohort: {len(entries)} entries from {entries[0][0]} to {entries[-1][0]}")
+    import sys
+    ticker = sys.argv[1] if len(sys.argv) > 1 else "BTC-USD"
+    entries = load_monthly(ticker)
+    if not entries:
+        print(f"No {ticker} monthly entries in memory log.")
+        return
+    print(f"{ticker} monthly cohort: {len(entries)} entries from {entries[0][0]} to {entries[-1][0]}")
     print()
 
-    hist = yf.Ticker(TICKER).history(start="2017-12-15", end="2026-03-01")
+    start_year = int(entries[0][0][:4])
+    hist = yf.Ticker(ticker).history(start=f"{start_year - 1}-12-15", end="2026-03-01")
     hist.index = hist.index.tz_localize(None)
     prices = hist["Close"]
 

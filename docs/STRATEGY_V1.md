@@ -1,11 +1,14 @@
-# Strategy V1 — BTC-Confluence
+# Strategy V1 — Crypto-Confluence
 
 A concrete, mechanically-implementable trading strategy built on top of the
-TradingAgents framework's market-analyst signal. Designed and validated
-against 8 full years of BTC monthly cohort data (2018-2025) without any
-new LLM calls.
+TradingAgents framework's market-analyst signal. Designed against 8 full
+years of BTC monthly data (2018-2025) and validated cross-asset on SOL
+(4 years) and ETH (4 years). Stop-loss centric — works on assets with
+crypto-grade volatility, **does not transfer to equities**.
 
 ## Backtest result
+
+### Single-asset on BTC (8-year base case)
 
 ```
                                          8-year ret    Max DD
@@ -16,14 +19,35 @@ Plain Buy=1.0 / OW=0.5 / Hold=0 (with fees)   +581%       -62%
 Strategy V1 (confluence + stop + brake + fee) +1425%       -37%
 ```
 
-V1 produces **5x naive Buy&Hold's return with less than half the drawdown**.
-CAGR ≈ 40% vs naive ~16%. Sharpe-equivalent improvement is large.
+CAGR ≈ 40% vs naive ~16%; max drawdown roughly halved.
+
+### Cross-asset validation
+
+Same V1 rules applied to other tickers in the memory log:
+
+| Asset | Years | Naive total | V1 total | Naive DD | V1 DD | V1 CAGR | V1 beats naive? |
+|-------|------:|------------:|---------:|---------:|------:|--------:|:---------------:|
+| BTC-USD | 8 | +227% | +1425% | -81% | -37% | ~40% | ✓ |
+| SOL-USD | 4 | +44% | +611% | -92% | -41% | ~63% | ✓ |
+| ETH-USD | 4 | +28% | +59% | -76% | -39% | ~12% | ✓ (modest) |
+| NVDA | 6.5 | **+1695%** | +752% | -64% | -37% | ~38% | **✗** |
+
+**The strategy is crypto-only.** NVDA's secular uptrend (+1695% over
+6.5 years, max single-month loss -28%) is the wrong regime for V1's
+stop-loss logic — it cuts profitable runs early and 13 stops in 78
+trades each shave -15% off positions that later recover. For equities
+with strong secular uptrends, plain buy-and-hold wins.
+
+For crypto, the same -15% stop converts catastrophic months (BTC
+2018-11 -38%, SOL 2022-11 -52%) into capped losses, which dominates
+the cost of cutting some winning runs. The fat-tail asymmetry of
+crypto returns is what makes the strategy work.
 
 ## Why each rule is in there
 
 | Rule | Why | Backtest impact |
 |------|-----|-----------------|
-| Universe = BTC-USD only | 8-year evidence base, 7/8 years positive true_signal | Only asset where the framework demonstrably has skill |
+| Universe = crypto majors (BTC + SOL) | 8-year BTC + 4-year SOL data; matches the strategy's stop-loss-centric design | NVDA case shows applying V1 to equities loses to naive |
 | Monthly cadence | Matches the backtest data we have; trader convenience | — |
 | 2-month Buy confluence | Reduces entry on single-month bullish noise | Alone: -225pp. With stop+brake: positive contribution |
 | Stop loss -15% | Caps the catastrophic-month damage that backtester showed | +514pp — the single largest alpha source |
