@@ -303,6 +303,14 @@
     const fmtPct = (x, decimals = 1) => (x >= 0 ? "+" : "") + (x * 100).toFixed(decimals) + "%";
     const fmtPctNum = (n, decimals = 1) => (n >= 0 ? "+" : "") + n.toFixed(decimals) + "%";
 
+    // Plotly may pass dates as Date objects, ms timestamps, or strings
+    function toDateStr(x) {
+      if (typeof x === "string") return x.slice(0, 10);
+      if (x instanceof Date) return x.toISOString().slice(0, 10);
+      if (typeof x === "number") return new Date(x).toISOString().slice(0, 10);
+      return String(x).slice(0, 10);
+    }
+
     async function loadData() {
       const resp = await fetch("data.json");
       DATA = await resp.json();
@@ -585,17 +593,18 @@
       Plotly.newPlot("chart", traces, layout, { displaylogo: false, responsive: true })
         .then(gd => {
           gd.on("plotly_click", (ev) => {
+            console.log("plotly_click fired", ev);
             if (!ev.points || !ev.points.length) return;
-            // ev.points contains all overlapping traces — find the one with customdata
             for (const p of ev.points) {
               if (p.customdata) {
-                openModal(p.customdata);
+                console.log("found marker with customdata:", p.customdata);
+                openModal(toDateStr(p.customdata));
                 return;
               }
             }
-            // Fallback: if a non-marker line was clicked, snap to nearest signal date
             const xVal = ev.points[0].x;
-            if (xVal) openModal(typeof xVal === "string" ? xVal : xVal.toISOString().slice(0, 10));
+            console.log("no customdata, falling back to x:", xVal);
+            if (xVal) openModal(toDateStr(xVal));
           });
         });
     }

@@ -53,40 +53,39 @@ def load_all_entries() -> dict[str, list[tuple[str, str]]]:
 
 
 def split_by_cadence(entries: list[tuple[str, str]]) -> dict[str, list[tuple[str, str]]]:
-    """Bucket entries by 'monthly' (one per year-month) and 'weekly' (the rest).
+    """Bucket entries into 'monthly' and (when applicable) 'weekly' cohorts.
 
-    Strategy: take all unique year-months — those are 'monthly' (one entry per
-    month). If a year-month has multiple entries, they are 'weekly' samples
-    within that month. We classify the FULL ticker as monthly-or-weekly based
-    on median date gap.
+    Approach: group by year-month. If ANY year-month has >1 entry, the
+    ticker has weekly resolution somewhere — produce both cohorts:
+
+      monthly: first entry per year-month
+      weekly:  every entry (both first-of-month and intra-month)
+
+    Otherwise, only monthly.
+
+    This correctly handles tickers like NVDA whose dataset is mostly monthly
+    (78 monthly entries) plus a partial weekly cohort (26 weeks 2024-H1) —
+    the previous median-gap heuristic lumped those together as 'monthly'.
     """
-    if len(entries) < 2:
-        return {"monthly": entries[:]} if entries else {}
-    dates = [pd.Timestamp(d) for d, _ in entries]
-    gaps = sorted((dates[i + 1] - dates[i]).days for i in range(len(dates) - 1))
-    median_gap = gaps[len(gaps) // 2]
-    cadence = "weekly" if median_gap < 14 else "monthly"
+    if not entries:
+        return {}
 
-    if cadence == "monthly":
-        return {"monthly": entries}
-
-    # Weekly cohort: separate the monthly (first-week) entries from the
-    # within-month weekly entries by looking at year-month uniqueness.
     by_ym: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for date, rating in entries:
         by_ym[date[:7]].append((date, rating))
 
     monthly: list[tuple[str, str]] = []
-    weekly: list[tuple[str, str]] = []
     for ym in sorted(by_ym):
-        items = by_ym[ym]
-        # First entry of each month → monthly; rest → weekly
-        monthly.append(items[0])
-        weekly.extend(items)  # weekly contains everything for that ticker
-    out = {}
+        monthly.append(by_ym[ym][0])
+
+    has_weekly = any(len(v) > 1 for v in by_ym.values())
+    out: dict[str, list[tuple[str, str]]] = {}
     if len(monthly) >= 2:
         out["monthly"] = monthly
-    if len(weekly) > len(monthly):
+    if has_weekly:
+        weekly: list[tuple[str, str]] = []
+        for ym in sorted(by_ym):
+            weekly.extend(sorted(by_ym[ym]))
         out["weekly"] = weekly
     return out
 
