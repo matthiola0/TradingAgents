@@ -128,17 +128,20 @@
 </head>
 <body>
   <header>
-    <h1>TradingAgents <span class="small">Backtest Dashboard</span></h1>
-    <button id="theme-toggle" title="Toggle theme">☀ / 🌙</button>
+    <h1>TradingAgents <span class="small" data-i18n="title_sub">Backtest Dashboard</span></h1>
+    <div style="display: flex; gap: 8px">
+      <button id="lang-toggle" title="Switch language">🌐 EN</button>
+      <button id="theme-toggle" title="Toggle theme">☀ / 🌙</button>
+    </div>
   </header>
 
   <div class="controls">
     <div class="control-group">
-      <label>Ticker</label>
+      <label data-i18n="label_ticker">Ticker</label>
       <select id="ticker-select"></select>
     </div>
     <div class="control-group">
-      <label>Frequency</label>
+      <label data-i18n="label_frequency">Frequency</label>
       <select id="frequency-select"></select>
     </div>
     <div class="control-group" style="justify-content: end">
@@ -150,17 +153,7 @@
 
   <div id="chart"></div>
 
-  <div class="legend">
-    <span class="legend-item"><span class="dot buy"></span> Buy (×2 confluence = larger)</span>
-    <span class="legend-item"><span class="dot ow"></span> Overweight</span>
-    <span class="legend-item"><span class="dot hold"></span> Hold / flat</span>
-    <span class="legend-item"><span class="dot stop"></span> Stop loss hit</span>
-    <span class="legend-item"><span class="swatch full"></span> 100% position band</span>
-    <span class="legend-item"><span class="swatch half"></span> 50–70% position band</span>
-    <span class="legend-item"><span class="swatch brake"></span> Drawdown brake active</span>
-    <span class="legend-item">— Strategy NAV  ··· Naive Buy&Hold</span>
-    <span class="legend-item" style="color: var(--accent)">Click any point for full LLM report</span>
-  </div>
+  <div class="legend" id="legend"></div>
 
   <div class="modal-backdrop" id="modal-backdrop">
     <div class="modal">
@@ -174,6 +167,133 @@
   </div>
 
   <script>
+    const I18N = {
+      en: {
+        title_sub: "Backtest Dashboard",
+        label_ticker: "Ticker",
+        label_frequency: "Frequency",
+        ticker_info: (label, n) => `${label} · ${n} trades`,
+        meta_period: "Period",
+        meta_years: "Years",
+        meta_trades: "Trades",
+        meta_naive_total: "Naive total",
+        meta_strat_total: "Strategy total",
+        meta_delta: "Δ vs naive",
+        meta_strat_cagr: "Strategy CAGR",
+        meta_strat_dd: "Strategy max DD",
+        meta_naive_dd: "Naive max DD",
+        meta_ratings: "Buy / OW / Hold",
+        meta_stops: "Stops fired",
+        meta_brakes: "Brakes fired",
+        strat_v1: "V1 (crypto)",
+        strat_v2: "V2 (equity)",
+        ax_price: "price",
+        ax_pos: "Position",
+        ax_nav: "NAV (start = 1.0)",
+        tr_price: "Price",
+        tr_naive: "Naive Buy&Hold",
+        tr_strategy: "Strategy NAV",
+        tr_signal: "Signal",
+        tip_strat_nav: "Strategy NAV",
+        tip_naive_nav: "Naive NAV",
+        tip_rating: "Rating",
+        tip_target: "target",
+        tip_actual: "actual",
+        tip_raw: "Period raw return",
+        tip_realised: "Realised P&L",
+        tip_click: "(click for full LLM report)",
+        legend_buy: "Buy (×2 confluence = larger)",
+        legend_ow: "Overweight",
+        legend_hold: "Hold / flat",
+        legend_stop: "Stop loss hit",
+        legend_band_full: "100% position band",
+        legend_band_half: "50–70% position band",
+        legend_band_brake: "Drawdown brake active",
+        legend_traces: "— Strategy NAV  ··· Naive Buy&Hold",
+        legend_click: "Click any point for full LLM report",
+        modal_tab_decision: "Final Decision",
+        modal_tab_trader: "Trader Plan",
+        modal_tab_plan: "Research Manager",
+        modal_tab_market: "Market Analyst",
+        modal_tab_sentiment: "Sentiment",
+        modal_tab_news: "News",
+        modal_tab_fundamentals: "Fundamentals",
+        modal_empty: (label) => `No ${label} content for this run.`,
+        rating_label: { Buy: "Buy", Overweight: "Overweight", Hold: "Hold",
+                        Underweight: "Underweight", Sell: "Sell" },
+        brake_label: "BRAKE",
+        v1_buy_x2: "Buy×2 confluence",
+        v1_buy_single: "Buy (single)",
+        v1_overweight: "Overweight",
+        v1_brake_fired: "BRAKE FIRED",
+        v1_stop_hit: "STOP LOSS HIT (-15%)",
+        v1_on_brake: "on brake (period skipped)",
+      },
+      zh: {
+        title_sub: "回測儀表板",
+        label_ticker: "標的",
+        label_frequency: "頻率",
+        ticker_info: (label, n) => `${label} · ${n} 筆交易`,
+        meta_period: "期間",
+        meta_years: "年數",
+        meta_trades: "交易數",
+        meta_naive_total: "Naive 總報酬",
+        meta_strat_total: "策略總報酬",
+        meta_delta: "vs Naive 差距",
+        meta_strat_cagr: "策略年化 (CAGR)",
+        meta_strat_dd: "策略最大 DD",
+        meta_naive_dd: "Naive 最大 DD",
+        meta_ratings: "Buy / OW / Hold",
+        meta_stops: "停損觸發次數",
+        meta_brakes: "Brake 觸發次數",
+        strat_v1: "V1（加密）",
+        strat_v2: "V2（股票）",
+        ax_price: "價格",
+        ax_pos: "部位",
+        ax_nav: "NAV（起始 = 1.0）",
+        tr_price: "價格",
+        tr_naive: "Naive 買入持有",
+        tr_strategy: "策略 NAV",
+        tr_signal: "訊號",
+        tip_strat_nav: "策略 NAV",
+        tip_naive_nav: "Naive NAV",
+        tip_rating: "評等",
+        tip_target: "目標",
+        tip_actual: "實際",
+        tip_raw: "區間原始報酬",
+        tip_realised: "實現損益",
+        tip_click: "（點擊看完整 LLM 報告）",
+        legend_buy: "Buy（連續 2 月為大圓點）",
+        legend_ow: "Overweight",
+        legend_hold: "Hold / 空手",
+        legend_stop: "停損觸發",
+        legend_band_full: "100% 部位帶",
+        legend_band_half: "50–70% 部位帶",
+        legend_band_brake: "Brake 暫停期",
+        legend_traces: "— 策略 NAV  ··· Naive 買入持有",
+        legend_click: "點任一點看完整 LLM 報告",
+        modal_tab_decision: "最終決策",
+        modal_tab_trader: "交易員計畫",
+        modal_tab_plan: "研究主管",
+        modal_tab_market: "市場分析師",
+        modal_tab_sentiment: "社群情緒",
+        modal_tab_news: "新聞",
+        modal_tab_fundamentals: "基本面",
+        modal_empty: (label) => `本次無「${label}」內容。`,
+        rating_label: { Buy: "買入", Overweight: "增持", Hold: "持平",
+                        Underweight: "減持", Sell: "賣出" },
+        brake_label: "BRAKE",
+        v1_buy_x2: "Buy 連續 2 月共振",
+        v1_buy_single: "Buy（單月）",
+        v1_overweight: "Overweight",
+        v1_brake_fired: "BRAKE 觸發",
+        v1_stop_hit: "停損觸發 (-15%)",
+        v1_on_brake: "Brake 暫停期（跳過）",
+      },
+    };
+    let LANG = localStorage.getItem("dash_lang") || "zh";
+    const t = (key) => I18N[LANG][key];
+
     let DATA = null;
     let CURRENT_TICKER = null;
     let CURRENT_FREQ = null;
@@ -229,34 +349,50 @@
     }
 
     function render() {
-      const t = DATA.tickers[CURRENT_TICKER];
-      const cadence = t[CURRENT_FREQ];
+      const ticker = DATA.tickers[CURRENT_TICKER];
+      const cadence = ticker[CURRENT_FREQ];
       if (!cadence) return;
       renderMetadata(cadence.metadata);
       renderChart(cadence.data, cadence.metadata);
+      const stratLabel = cadence.metadata.asset_class === "crypto" ? t("strat_v1") : t("strat_v2");
       document.getElementById("ticker-info").textContent =
-        `${cadence.metadata.strategy_label} · ${cadence.metadata.n_trades} trades`;
+        t("ticker_info")(stratLabel, cadence.metadata.n_trades);
     }
 
     function renderMetadata(meta) {
       const stratDelta = meta.v1_total_ret_pct - meta.naive_total_ret_pct;
       const items = [
-        ["Period", meta.period, ""],
-        ["Years", meta.n_years.toFixed(1), ""],
-        ["Trades", meta.n_trades, ""],
-        ["Naive total", fmtPctNum(meta.naive_total_ret_pct), meta.naive_total_ret_pct >= 0 ? "pos" : "neg"],
-        ["Strategy total", fmtPctNum(meta.v1_total_ret_pct), meta.v1_total_ret_pct >= 0 ? "pos" : "neg"],
-        ["Δ vs naive", fmtPctNum(stratDelta) + "pp", stratDelta >= 0 ? "pos" : "neg"],
-        ["Strategy CAGR", fmtPctNum(meta.v1_cagr_pct), meta.v1_cagr_pct >= 0 ? "pos" : "neg"],
-        ["Strategy max DD", fmtPctNum(meta.v1_max_dd_pct), "neg"],
-        ["Naive max DD", fmtPctNum(meta.naive_max_dd_pct), "neg"],
-        ["Buy / OW / Hold", `${meta.rating_counts.Buy} / ${meta.rating_counts.Overweight} / ${meta.rating_counts.Hold}`, ""],
-        ["Stops fired", meta.stops, meta.stops > 0 ? "neg" : ""],
-        ["Brakes fired", meta.brakes, meta.brakes > 0 ? "neg" : ""],
+        [t("meta_period"), meta.period, ""],
+        [t("meta_years"), meta.n_years.toFixed(1), ""],
+        [t("meta_trades"), meta.n_trades, ""],
+        [t("meta_naive_total"), fmtPctNum(meta.naive_total_ret_pct), meta.naive_total_ret_pct >= 0 ? "pos" : "neg"],
+        [t("meta_strat_total"), fmtPctNum(meta.v1_total_ret_pct), meta.v1_total_ret_pct >= 0 ? "pos" : "neg"],
+        [t("meta_delta"), fmtPctNum(stratDelta) + "pp", stratDelta >= 0 ? "pos" : "neg"],
+        [t("meta_strat_cagr"), fmtPctNum(meta.v1_cagr_pct), meta.v1_cagr_pct >= 0 ? "pos" : "neg"],
+        [t("meta_strat_dd"), fmtPctNum(meta.v1_max_dd_pct), "neg"],
+        [t("meta_naive_dd"), fmtPctNum(meta.naive_max_dd_pct), "neg"],
+        [t("meta_ratings"), `${meta.rating_counts.Buy} / ${meta.rating_counts.Overweight} / ${meta.rating_counts.Hold}`, ""],
+        [t("meta_stops"), meta.stops, meta.stops > 0 ? "neg" : ""],
+        [t("meta_brakes"), meta.brakes, meta.brakes > 0 ? "neg" : ""],
       ];
       document.getElementById("metadata").innerHTML = items.map(([k, v, cls]) =>
         `<div class="item"><span class="label">${k}</span><span class="val ${cls}">${v}</span></div>`
       ).join("");
+    }
+
+    function renderLegend() {
+      const html = `
+        <span class="legend-item"><span class="dot buy"></span> ${t("legend_buy")}</span>
+        <span class="legend-item"><span class="dot ow"></span> ${t("legend_ow")}</span>
+        <span class="legend-item"><span class="dot hold"></span> ${t("legend_hold")}</span>
+        <span class="legend-item"><span class="dot stop"></span> ${t("legend_stop")}</span>
+        <span class="legend-item"><span class="swatch full"></span> ${t("legend_band_full")}</span>
+        <span class="legend-item"><span class="swatch half"></span> ${t("legend_band_half")}</span>
+        <span class="legend-item"><span class="swatch brake"></span> ${t("legend_band_brake")}</span>
+        <span class="legend-item">${t("legend_traces")}</span>
+        <span class="legend-item" style="color: var(--accent)">${t("legend_click")}</span>
+      `;
+      document.getElementById("legend").innerHTML = html;
     }
 
     function ratingColor(r) {
@@ -300,18 +436,35 @@
       });
       const markerSymbols = data.map(d => d.stop_hit ? "x" : "circle");
 
-      // Tooltip text
+      // Tooltip text — translate the summary tags too
+      const summaryMap = {
+        "Buy×2 confluence": t("v1_buy_x2"),
+        "Buy (single)": t("v1_buy_single"),
+        "Overweight": t("v1_overweight"),
+        "BRAKE FIRED": t("v1_brake_fired"),
+        "STOP LOSS HIT (-15%)": t("v1_stop_hit"),
+        "on brake (period skipped)": t("v1_on_brake"),
+      };
+      const translateSummary = (s) => {
+        let out = s;
+        for (const [en, tr] of Object.entries(summaryMap)) {
+          out = out.split(en).join(tr);
+        }
+        return out;
+      };
       const hoverTexts = data.map(d => {
         const pp = (n) => (n >= 0 ? "+" : "") + (n * 100).toFixed(1) + "%";
+        const ratingLabel = t("rating_label")[d.rating] || d.rating;
+        const priceStr = d.price ? d.price.toFixed(2) : "?";
         return `<b>${d.date}</b><br>` +
-          `Price: $${d.price ? d.price.toFixed(2) : "?"}<br>` +
-          `Strategy NAV: ${d.v1_equity.toFixed(3)} (${pp(d.v1_equity - 1)})<br>` +
-          `Naive NAV: ${d.naive_equity.toFixed(3)} (${pp(d.naive_equity - 1)})<br>` +
-          `<br><b>Rating: ${d.rating}</b> · target ${(d.target_pos * 100).toFixed(0)}%, actual ${(d.actual_pos * 100).toFixed(0)}%<br>` +
-          `Period raw return: ${pp(d.raw_return)}<br>` +
-          `Realised P&L: ${pp(d.realized_pnl)}<br>` +
-          `${d.summary}<br>` +
-          `<i>(click for full LLM report)</i>`;
+          `${t("tr_price")}: $${priceStr}<br>` +
+          `${t("tip_strat_nav")}: ${d.v1_equity.toFixed(3)} (${pp(d.v1_equity - 1)})<br>` +
+          `${t("tip_naive_nav")}: ${d.naive_equity.toFixed(3)} (${pp(d.naive_equity - 1)})<br>` +
+          `<br><b>${t("tip_rating")}: ${ratingLabel}</b> · ${t("tip_target")} ${(d.target_pos * 100).toFixed(0)}%, ${t("tip_actual")} ${(d.actual_pos * 100).toFixed(0)}%<br>` +
+          `${t("tip_raw")}: ${pp(d.raw_return)}<br>` +
+          `${t("tip_realised")}: ${pp(d.realized_pnl)}<br>` +
+          `${translateSummary(d.summary)}<br>` +
+          `<i>${t("tip_click")}</i>`;
       });
 
       // Build position bands as shape rectangles between consecutive dates
@@ -346,7 +499,7 @@
         const pos = p.brake_active ? -1 : p.actual_pos;
         if (pos !== lastPos) {
           let label;
-          if (p.brake_active) label = "BRAKE";
+          if (p.brake_active) label = t("brake_label");
           else if (pos === 0) label = "0%";
           else label = (pos * 100).toFixed(0) + "%";
           annotations.push({
@@ -362,31 +515,31 @@
 
       const traces = [
         {
-          name: "Price",
+          name: t("tr_price"),
           x: dates, y: prices,
           type: "scatter", mode: "lines",
           line: { color: getCssVar("--text-dim"), width: 1.5 },
           yaxis: "y",
-          hovertemplate: "%{x}<br>Price: $%{y:.2f}<extra></extra>",
+          hovertemplate: `%{x}<br>${t("tr_price")}: $%{y:.2f}<extra></extra>`,
         },
         {
-          name: "Naive Buy&Hold",
+          name: t("tr_naive"),
           x: dates, y: naive,
           type: "scatter", mode: "lines",
           line: { color: getCssVar("--text-dim"), width: 1.5, dash: "dot" },
           yaxis: "y3",
-          hovertemplate: "%{x}<br>Naive NAV: %{y:.3f}<extra></extra>",
+          hovertemplate: `%{x}<br>${t("tip_naive_nav")}: %{y:.3f}<extra></extra>`,
         },
         {
-          name: "Strategy NAV",
+          name: t("tr_strategy"),
           x: dates, y: v1,
           type: "scatter", mode: "lines",
           line: { color: getCssVar("--accent"), width: 2.5 },
           yaxis: "y3",
-          hovertemplate: "%{x}<br>Strategy NAV: %{y:.3f}<extra></extra>",
+          hovertemplate: `%{x}<br>${t("tip_strat_nav")}: %{y:.3f}<extra></extra>`,
         },
         {
-          name: "Signal",
+          name: t("tr_signal"),
           x: dates, y: v1,
           type: "scatter", mode: "markers",
           marker: { color: markerColors, size: markerSizes, symbol: markerSymbols,
@@ -407,12 +560,12 @@
         legend: { orientation: "h", y: 1.08, x: 0, bgcolor: "rgba(0,0,0,0)" },
         xaxis: { gridcolor: getCssVar("--border"), zerolinecolor: getCssVar("--border") },
         yaxis: {
-          title: { text: `${CURRENT_TICKER} price`, font: { color: getCssVar("--text-dim") } },
+          title: { text: `${CURRENT_TICKER} ${t("ax_price")}`, font: { color: getCssVar("--text-dim") } },
           gridcolor: getCssVar("--border"), zerolinecolor: getCssVar("--border"),
           side: "left", domain: [0.0, 1.0],
         },
         yaxis2: {
-          title: { text: "Position", font: { color: getCssVar("--purple") }, standoff: 4 },
+          title: { text: t("ax_pos"), font: { color: getCssVar("--purple") }, standoff: 4 },
           range: [0, 1],
           tickvals: [0, 0.5, 0.7, 1.0],
           ticktext: ["0%", "50%", "70%", "100%"],
@@ -421,7 +574,7 @@
           position: 0.97,
         },
         yaxis3: {
-          title: { text: "NAV (start = 1.0)", font: { color: getCssVar("--accent") } },
+          title: { text: t("ax_nav"), font: { color: getCssVar("--accent") } },
           gridcolor: getCssVar("--border"),
           overlaying: "y", side: "right",
           tickfont: { color: getCssVar("--accent") },
@@ -492,13 +645,13 @@
       }
       document.getElementById("modal-title").textContent = `${ticker} — ${date}`;
       const tabs = [
-        ["decision", "Final Decision", "final_trade_decision"],
-        ["trader", "Trader Plan", "trader_investment_plan"],
-        ["plan", "Research Manager", "investment_plan"],
-        ["market", "Market Analyst", "market_report"],
-        ["sentiment", "Sentiment", "sentiment_report"],
-        ["news", "News", "news_report"],
-        ["fundamentals", "Fundamentals", "fundamentals_report"],
+        ["decision", t("modal_tab_decision"), "final_trade_decision"],
+        ["trader", t("modal_tab_trader"), "trader_investment_plan"],
+        ["plan", t("modal_tab_plan"), "investment_plan"],
+        ["market", t("modal_tab_market"), "market_report"],
+        ["sentiment", t("modal_tab_sentiment"), "sentiment_report"],
+        ["news", t("modal_tab_news"), "news_report"],
+        ["fundamentals", t("modal_tab_fundamentals"), "fundamentals_report"],
       ];
       const tabsEl = document.getElementById("modal-tabs");
       const bodyEl = document.getElementById("modal-body");
@@ -512,7 +665,7 @@
         const text = report[key] || "";
         bodyEl.innerHTML = text.trim()
           ? `<pre>${text.replace(/[<>]/g, c => c === "<" ? "&lt;" : "&gt;")}</pre>`
-          : `<div class="empty">No ${label} content for this run.</div>`;
+          : `<div class="empty">${t("modal_empty")(label)}</div>`;
       }
       showTab(tabs[0][2], tabs[0][1]);
       tabsEl.querySelectorAll(".modal-tab").forEach(el => {
@@ -537,11 +690,30 @@
     document.getElementById("theme-toggle").onclick = () => {
       const cur = document.documentElement.dataset.theme;
       document.documentElement.dataset.theme = (cur === "dark") ? "light" : "dark";
-      // Re-render to pick up new colors
       if (CURRENT_TICKER && CURRENT_FREQ) render();
     };
 
-    loadData();
+    function applyLanguage() {
+      // Static i18n elements
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.dataset.i18n;
+        const v = I18N[LANG][key];
+        if (typeof v === "string") el.textContent = v;
+      });
+      document.documentElement.lang = LANG === "zh" ? "zh-Hant" : "en";
+      document.title = "TradingAgents " + I18N[LANG].title_sub;
+      document.getElementById("lang-toggle").textContent = LANG === "zh" ? "🌐 中" : "🌐 EN";
+      renderLegend();
+      if (CURRENT_TICKER && CURRENT_FREQ) render();
+    }
+
+    document.getElementById("lang-toggle").onclick = () => {
+      LANG = (LANG === "zh") ? "en" : "zh";
+      localStorage.setItem("dash_lang", LANG);
+      applyLanguage();
+    };
+
+    loadData().then(() => applyLanguage());
   </script>
 </body>
 </html>
