@@ -224,6 +224,11 @@ def main(argv: list[str] | None = None) -> int:
                    help="Comma-separated subset of: market,social,news,fundamentals")
     g.add_argument("--debate-rounds", type=int, default=0)
     g.add_argument("--risk-rounds", type=int, default=0)
+    g.add_argument("--config", choices=["minimal", "full"], default=None,
+                   help="Preset: 'minimal' = market only, no debate (cheap, "
+                        "Buy-biased). 'full' = market+news+fundamentals, "
+                        "debate=1, risk=1 (5x cost, produces Hold/Underweight). "
+                        "If set, overrides --analysts/--debate-rounds/--risk-rounds.")
     g.add_argument("--vendor", default="yfinance",
                    help="Data vendor for all categories. Options: yfinance, alpha_vantage")
     g.add_argument("--no-checkpoint", action="store_true",
@@ -243,6 +248,14 @@ def main(argv: list[str] | None = None) -> int:
                    help="Re-run (ticker, date) pairs even if they already exist in the memory log.")
 
     args = p.parse_args(argv)
+    if args.config == "minimal":
+        args.analysts = "market"
+        args.debate_rounds = 0
+        args.risk_rounds = 0
+    elif args.config == "full":
+        args.analysts = "market,news,fundamentals"
+        args.debate_rounds = 1
+        args.risk_rounds = 1
     return run(args)
 
 

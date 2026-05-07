@@ -1,14 +1,32 @@
 # Live Trading Guide — BTC + SOL on Binance
 
-從 paper 到實單的完整步驟。配置：**60% BTC + 40% SOL，Strategy V1 (confluence + stop loss -15% + drawdown brake -25%)**。
+從 paper 到實單的完整步驟。配置：**60% BTC + 40% SOL，Strategy V1 (confluence + stop loss -15% + drawdown brake -25%) + Full config 訊號**。
 
-歷史回測（4 年 2022-2025）：
+## 訊號配置（推薦 full config）
 
 ```
-                    4-year ret   CAGR    Max DD    Sharpe
-Naive Buy&Hold      +84%         +17%    -82%      0.54
-Strategy V1 60/40   +271%        +39%    -36%      0.98
+Signal config: market + news + fundamentals analysts, debate=1, risk=1
+- 5x quota cost vs minimal config
+- 牛市少賺一些（漏接部分上漲）
+- 熊市保護資本顯著（max DD 砍半）
+- 長期複利略勝 minimal
 ```
+
+歷史回測對比（BTC 2 年樣本）：
+
+```
+                          BTC 2022 (bear)   BTC 2024 (bull)   2y compound
+Naive Buy & Hold          -71.5%            +126.8%           -34%
+Minimal V1                -42.9%            +116.2%           +23%
+Full V1 (recommended)     -15.3%            +52.3%            +29%
+```
+
+Full config 的 sleep-at-night 性質（max DD -15% vs -43%）對小規模實單更友善，
+雖然牛年可能 underperform naive 較多。要最大化牛年 alpha 改用 minimal。
+
+## Strategy 規則（共通）
+
+兩個 leg 都用 V1：
 
 ---
 
@@ -116,21 +134,46 @@ python scripts\live_trader.py --live
 
 ## Step 6 — 排程
 
+### 推薦用 weekly_runner.py（一鍵完成 signal + execution）
+
+最乾淨：
+
+```powershell
+# Sunday 23:00 UTC：跑 paper / dry run（預設）
+python scripts\weekly_runner.py
+
+# Live mode（真錢）
+python scripts\weekly_runner.py --live
+
+# 切回省 quota 的 minimal config（預設是 full）
+python scripts\weekly_runner.py --config minimal
+```
+
+`weekly_runner.py` 會：
+1. 用 full config（market+news+fundamentals+debate+risk）跑 BTC/SOL 兩個 propagate
+2. Failed 就重試 3 次（network blip 容忍）
+3. 全成功才 call `live_trader.py`
+4. 所有 stdout 印出時間戳，便於 cron log
+
 ### Windows Task Scheduler
 
 1. 開 Task Scheduler → Create Task
 2. **Triggers**：每週日 23:00 UTC（你的時區換算）
 3. **Action**: Start a program
-   - Program: `powershell.exe`
-   - Arguments: `-Command "& 'C:\Users\Pan\anaconda3\envs\tradingagents\python.exe' 'C:\Users\Pan\Desktop\code\TradingAgents\scripts\weekly_run.ps1'"`
+   - Program: `C:\Users\Pan\anaconda3\envs\tradingagents\python.exe`
+   - Arguments: `C:\Users\Pan\Desktop\code\TradingAgents\scripts\weekly_runner.py --live`
+   - Start in: `C:\Users\Pan\Desktop\code\TradingAgents`
+4. **Settings**: 勾「Run task as soon as possible after a scheduled start is missed」（電腦關機補跑）
 
-建立 `weekly_run.ps1`：
+或如果偏好 PowerShell wrapper（log to file）：
 
 ```powershell
-$today = Get-Date -Format "yyyy-MM-dd"
-& 'C:\Users\Pan\anaconda3\envs\tradingagents\python.exe' 'scripts\run_backtest.py' --ticker BTC-USD --start $today --end $today --frequency monthly
-& 'C:\Users\Pan\anaconda3\envs\tradingagents\python.exe' 'scripts\run_backtest.py' --ticker SOL-USD --start $today --end $today --frequency monthly
-& 'C:\Users\Pan\anaconda3\envs\tradingagents\python.exe' 'scripts\live_trader.py' --live | Tee-Object -Append "$env:USERPROFILE\.tradingagents\trade_log.txt"
+# weekly_run.ps1
+$logFile = "$env:USERPROFILE\.tradingagents\trade_log.txt"
+"=== $(Get-Date) ===" | Out-File $logFile -Append
+& 'C:\Users\Pan\anaconda3\envs\tradingagents\python.exe' `
+  'C:\Users\Pan\Desktop\code\TradingAgents\scripts\weekly_runner.py' --live `
+  *>&1 | Tee-Object -Append $logFile
 ```
 
 ### Linux / macOS cron
@@ -138,9 +181,7 @@ $today = Get-Date -Format "yyyy-MM-dd"
 ```bash
 # /etc/crontab
 0 23 * * 0 panuser cd /path/to/TradingAgents && \
-  python scripts/run_backtest.py --ticker BTC-USD --start $(date +%Y-%m-%d) --end $(date +%Y-%m-%d) --frequency monthly && \
-  python scripts/run_backtest.py --ticker SOL-USD --start $(date +%Y-%m-%d) --end $(date +%Y-%m-%d) --frequency monthly && \
-  python scripts/live_trader.py --live >> ~/.tradingagents/trade_log.txt 2>&1
+  python scripts/weekly_runner.py --live >> ~/.tradingagents/trade_log.txt 2>&1
 ```
 
 ## 風險限制（強烈建議）
